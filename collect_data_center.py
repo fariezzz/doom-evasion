@@ -1,0 +1,118 @@
+"""Kumpul data pilot DoomEvasion di skenario defend_the_center.
+
+Alasan pindah skenario: pilot 1 di basic menghasilkan 1500 frame yang
+semuanya kelas 1, karena monster selalu terlihat. Di defend_the_center
+pemain diam di tengah arena lingkaran dan hanya bisa belok, jadi
+memutar badan bisa menghasilkan pandangan tanpa monster.
+Aturan label sementara: 1 kalau ada label kategori Monster, 0 kalau
+tidak. Nama dan kategori label dicatat per frame di manifest, supaya
+aturannya bisa diperiksa ulang setelah pilot jalan.
+Aksi pilot: hanya belok kiri/kanan dan diam, tanpa ATTACK. Episode
+bisa berakhir karena pemain mati, jadi panjang episode ikut dicatat.
+Jalankan dari folder doom-evasion dengan venv aktif:
+    python collect_data_center.py --episodes 5 --max-steps 600
+Output: folder data_center berisi PNG per episode dan manifest.csv.
+"""
+
+import argparse
+import csv
+import os
+import random
+
+import cv2
+import numpy as np
+import vizdoom as vzd
+
+
+def to_gray84(buffer):
+    if buffer.ndim == 3:
+        if buffer.shape[0] == 1:
+            gray = buffer[0]
+        elif buffer.shape[0] == 3:
+            gray = cv2.cvtColor(np.transpose(buffer, (1, 2, 0)), cv2.COLOR_RGB2GRAY)
+        else:
+            gray = buffer[0]
+    else:
+        gray = buffer
+    return cv2.resize(gray, (84, 84), interpolation=cv2.INTER_AREA)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--episodes", type=int, default=5)
+    parser.add_argument("--max-steps", type=int, default=600)
+    parser.add_argument("--seed-start", type=int, default=200)
+    parser.add_argument("--out", default="data_center")
+    args = parser.parse_args()
+
+    game = vzd.DoomGame()
+    game.load_config(os.path.join(vzd.scenarios_path, "defend_the_center.cfg"))
+    game.set_window_visible(False)
+    game.set_labels_buffer_enabled(True)
+    game.set_screen_format(vzd.ScreenFormat.GRAY8)
+    game.set_episode_timeout(args.max_steps)
+    game.init()
+
+    buttons = game.get_available_buttons()
+    names = [str(b) for b in buttons]
+    print("Tombol:", names)
+    n_buttons = len(buttons)
+    left = next((i for i, nm in enumerate(names) if "TURN_LEFT" in nm), None)
+    right = next((i for i, nm in enumerate(names) if "TURN_RIGHT" in nm), None)
+    if left is None or right is None:
+        raise SystemExit("Tombol TURN_LEFT/TURN_RIGHT tidak ditemukan: " + str(names))
+
+    os.makedirs(args.out, exist_ok=True)
+    manifest_path = os.path.join(args.out, "manifest.csv")
+    total = {0: 0, 1: 0}
+    first_shape = None
+    with open(manifest_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["episode", "seed", "step", "path", "label", "label_names", "label_categories"])
+        for ep in range(args.episodes):
+            seed = args.seed_start + ep
+            rng = random.Random(seed)
+            game.set_seed(seed)
+            game.new_episode()
+            ep_dir = os.path.join(args.out, "ep%03d_seed%d" % (ep, seed))
+            os.makedirs(ep_dir, exist_ok=True)
+            counts = {0: 0, 1: 0}
+            step = 0
+            hold = 0
+            move = None
+            while not game.is_episode_finished() and step < args.max_steps:
+                state = game.get_state()
+                if state is None:
+                    break
+                if first_shape is None:
+                    first_shape = state.screen_buffer.shape
+                    print("Shape buffer pertama:", first_shape)
+                labels = state.labels if state.labels is not None else []
+                label_names = [getattr(lb, "object_name", "?") for lb in labels]
+                label_cats = [getattr(lb, "object_category", "?") for lb in labels]
+                label = 1 if "Monster" in label_cats else 0
+                frame = to_gray84(state.screen_buffer)
+                filename = "frame_%04d.png" % step
+                cv2.imwrite(os.path.join(ep_dir, filename), frame)
+                rel = os.path.basename(ep_dir) + "/" + filename
+                writer.writerow([ep, seed, step, rel, label, ";".join(label_names), ";".join(label_cats)])
+                counts[label] += 1
+                total[label] += 1
+                if hold <= 0:
+                    move = rng.choice([left, right, None])
+                    hold = rng.randint(5, 15)
+                action = [0] * n_buttons
+                if move is not None:
+                    action[move] = 1
+                hold -= 1
+                game.make_action(action)
+                step += 1
+            finished = game.is_episode_finished()
+            print("Episode %d seed %d: %d frame, kelas 0=%d, kelas 1=%d, episode_selesai=%s" % (ep, seed, step, counts[0], counts[1], finished))
+    game.close()
+    print("Total: %d frame, kelas 0=%d, kelas 1=%d" % (total[0] + total[1], total[0], total[1]))
+    print("Manifest:", manifest_path)
+
+
+if __name__ == "__main__":
+    main()

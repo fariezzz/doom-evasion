@@ -1,0 +1,44 @@
+Ringkasan dataset DoomEvasion
+Dibuat: 2026-11-14T20:53:44
+Folder data: data_final
+Split seed: 12345
+Frame mentah: 4709
+Frame unik setelah dedup: 3923
+Duplikat dibuang: 786
+Kelas mentah: 0=1398, 1=3311
+Kelas unik: 0=778, 1=3145
+Jumlah episode: 30 (train 21, val 4, test 5)
+Split train: 2807 frame, kelas 0=598, kelas 1=2209, episode: ep1_seed401,ep2_seed402,ep3_seed403,ep4_seed404,ep5_seed405,ep7_seed407,ep10_seed410,ep12_seed412,ep14_seed414,ep15_seed415,ep16_seed416,ep17_seed417,ep18_seed418,ep19_seed419,ep20_seed420,ep21_seed421,ep22_seed422,ep24_seed424,ep27_seed427,ep28_seed428,ep29_seed429
+Split val: 551 frame, kelas 0=102, kelas 1=449, episode: ep6_seed406,ep8_seed408,ep9_seed409,ep11_seed411
+Split test: 565 frame, kelas 0=78, kelas 1=487, episode: ep0_seed400,ep13_seed413,ep23_seed423,ep25_seed425,ep26_seed426
+Frame unik per episode:
+  ep0_seed400: 150
+  ep1_seed401: 117
+  ep2_seed402: 127
+  ep3_seed403: 186
+  ep4_seed404: 181
+  ep5_seed405: 153
+  ep6_seed406: 120
+  ep7_seed407: 163
+  ep8_seed408: 164
+  ep9_seed409: 109
+  ep10_seed410: 136
+  ep11_seed411: 158
+  ep12_seed412: 226
+  ep13_seed413: 98
+  ep14_seed414: 147
+  ep15_seed415: 110
+  ep16_seed416: 104
+  ep17_seed417: 122
+  ep18_seed418: 164
+  ep19_seed419: 173
+  ep20_seed420: 50
+  ep21_seed421: 149
+  ep22_seed422: 129
+  ep23_seed423: 94
+  ep24_seed424: 133
+  ep25_seed425: 144
+  ep26_seed426: 79
+  ep27_seed427: 73
+  ep28_seed428: 41
+  ep29_seed429: 123

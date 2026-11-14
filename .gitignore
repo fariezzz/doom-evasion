@@ -1,0 +1,31 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ViZDoom generated config (local paths, regenerable)
+_vizdoom.ini
+
+# Dataset frames: regenerable by re-running the collect scripts with the
+# same seeds. Manifests, split CSVs, and summaries in the data folders
+# ARE tracked, only the PNG frames are ignored.
+data_*/**/*.png
+
+# Training checkpoints: regenerable by re-running train_baseline.py.
+# Logs, metrics JSON, and figures in runs/ ARE tracked.
+runs/**/*.pt
+
+# Smoke test outputs: throwaway verification runs, not results.
+runs/smoke/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
