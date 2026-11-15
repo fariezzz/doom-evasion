@@ -1,5 +1,5 @@
 Ringkasan dataset DoomEvasion
-Dibuat: 2026-11-14T20:53:44
+Dibuat: 2026-11-15T14:02:15
 Folder data: data_final
 Split seed: 12345
 Frame mentah: 4709
