@@ -22,6 +22,11 @@ runs/**/*.pt
 # Smoke test outputs: throwaway verification runs, not results.
 runs/smoke/
 
+# FGSM attack outputs: generated results, shared via handoff zip, not git.
+# The attack script itself (attack_fgsm.py) IS tracked.
+runs/fgsm/
+runs/fgsm_smoke/
+
 # Editor
 .vscode/
 .idea/
