@@ -16,8 +16,10 @@ _vizdoom.ini
 data_*/**/*.png
 
 # Training checkpoints: regenerable by re-running train_baseline.py.
-# Logs, metrics JSON, and figures in runs/ ARE tracked.
 runs/**/*.pt
+
+# Gameplay frame captures are regenerable and should not be pushed.
+runs/**/frame_*.png
 
 # Smoke test outputs: throwaway verification runs, not results.
 runs/smoke/

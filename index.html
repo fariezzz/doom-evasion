@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#100b08">
+  <title>DOOM Evasion · Live</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #100b08;
+      --panel: #1a110d;
+      --panel-2: #25170f;
+      --line: #71301f;
+      --text: #e8d8b5;
+      --muted: #aa8c61;
+      --green: #e9a43a;
+      --yellow: #ffd05a;
+      --red: #ed4936;
+      --mono: "Courier New", Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 var(--mono);
+    }
+    .shell { max-width: 1500px; margin: auto; padding: 18px clamp(12px, 3vw, 36px) 40px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+    .brand { display: flex; gap: 9px; align-items: center; font: 700 12px var(--mono); letter-spacing: .08em; }
+    .brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--red); color: var(--red); }
+    .pill, .eyebrow { color: var(--green); font: 700 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .pill { border: 1px solid var(--line); padding: 5px 8px; }
+    .pill.offline { color: var(--red); }
+    .hero { display: flex; justify-content: space-between; align-items: end; gap: 16px; padding: 18px 0 14px; }
+    h1 { margin: 4px 0; color: var(--red); font-size: clamp(24px, 4vw, 36px); line-height: 1.1; letter-spacing: .04em; }
+    .hero p { color: var(--muted); max-width: 760px; margin: 6px 0 0; font-size: 12px; }
+    .hero-tag { color: var(--yellow); font: 11px/1.5 var(--mono); white-space: nowrap; text-align: right; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 14px 0 8px; }
+    h2 { color: var(--yellow); font-size: 14px; margin: 0; letter-spacing: .05em; text-transform: uppercase; }
+    .section-note { color: var(--muted); font-size: 12px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 0; overflow: hidden; }
+    .card-head { min-height: 38px; padding: 7px 10px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .card-title { color: var(--yellow); font: 700 11px var(--mono); letter-spacing: .06em; }
+    .live { color: var(--green); font: 10px var(--mono); }
+    .live:before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 7px; }
+    .offline .live { color: var(--red); }
+    .offline .live:before { background: var(--red); }
+    .game-card { display: flex; flex-direction: column; }
+    .card-head-actions { display: flex; align-items: center; gap: 10px; }
+    .game-screen-wrap { position: relative; display: flex; justify-content: center; background: #000; }
+    .screen { display: block; width: min(100%, 1100px, 86vh); aspect-ratio: 4 / 3; object-fit: contain; image-rendering: pixelated; background: #000; }
+    .game-overlay { position: absolute; left: 8px; top: 8px; display: grid; gap: 3px; min-width: 150px; padding: 7px 9px; background: #080605eF; border: 1px solid var(--red); pointer-events: none; }
+    .game-overlay span { color: var(--text); font: 11px var(--mono); }
+    .game-overlay strong { color: var(--green); font: 700 14px var(--mono); }
+    .game-overlay strong.bad { color: var(--red); }
+    .game-error { padding: 6px 10px; border-top: 1px solid var(--red); color: var(--red); font: 11px var(--mono); }
+    .game-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 10px; color: var(--muted); font: 11px var(--mono); }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-top: 1px solid var(--line); background: #0c0907; }
+    .keyboard { display: grid; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 38px); gap: 4px; }
+    .keyboard .key-forward { grid-column: 2; grid-row: 1; }
+    .keyboard .key-left { grid-column: 1; grid-row: 2; }
+    .keyboard .key-backward { grid-column: 2; grid-row: 2; }
+    .keyboard .key-right { grid-column: 3; grid-row: 2; }
+    .key, button, select {
+      background: #21130d; color: var(--text); border: 1px solid #a34a2c; border-radius: 0;
+      padding: 7px 10px; font: 700 12px var(--mono); cursor: pointer;
+    }
+    button:hover { border-color: var(--yellow); color: var(--yellow); }
+    button:active, button.pressed { background: #6b2b18; border-color: var(--yellow); color: #fff1c8; }
+    button:disabled { opacity: .55; cursor: wait; }
+    button.danger { border-color: var(--red); color: var(--red); }
+    button:focus-visible, select:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+    .control-hints { color: var(--muted); font-size: 10px; line-height: 1.7; }
+    .control-hints b { color: var(--yellow); }
+    .space-key { min-width: 90px; min-height: 38px; }
+    #game-card:fullscreen { width: 100vw; height: 100vh; border: 0; }
+    #game-card:fullscreen .game-screen-wrap { flex: 1; min-height: 0; }
+    #game-card:fullscreen .screen { width: 100%; height: 100%; max-width: none; aspect-ratio: auto; }
+    #game-card:fullscreen .controls { justify-content: center; }
+    .capture-panel { margin-top: 12px; }
+    .capture-body { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 14px; padding: 12px; }
+    .capture-body img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #000; image-rendering: pixelated; }
+    .capture-info { align-content: start; color: var(--muted); font-size: 11px; }
+    .capture-info strong { display: block; color: var(--green); font-size: 16px; }
+    .capture-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 12px; border-top: 1px solid var(--line); }
+    .capture-label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+    .capture-tools p { flex: 1 1 280px; margin: 0; color: var(--muted); font-size: 10px; }
+    .capture-evaluation { padding: 12px; border-top: 1px solid var(--line); }
+    .capture-evaluation-summary { margin: 0 0 10px; color: var(--yellow); font-size: 11px; }
+    .capture-evaluation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .capture-sample { min-width: 0; padding: 8px; border: 1px solid var(--line); background: #0c0907; }
+    .capture-sample h3 { margin: 0 0 7px; color: var(--yellow); font-size: 10px; }
+    .capture-sample img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #000; image-rendering: pixelated; }
+    .capture-sample p { margin: 7px 0 0; color: var(--muted); font-size: 10px; }
+    .capture-sample .capture-sample-status { font-weight: 700; }
+    .capture-sample-status.good { color: var(--green); }
+    .capture-sample-status.bad { color: var(--red); }
+    .capture-evaluation-error { margin: 0; padding: 0 12px 12px; color: var(--red); font-size: 11px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .metric { padding: 12px; }
+    .metric span { color: var(--muted); font-size: 11px; }
+    .metric strong { display: block; font: 700 clamp(20px, 3vw, 28px) var(--mono); margin-top: 5px; color: var(--green); }
+    .attack-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
+    th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+    td.emph { color: var(--yellow); font-weight: 700; }
+    .attack-image { padding: 10px; }
+    .attack-image img { display: block; width: 100%; height: auto; }
+    .explain { padding: 13px 15px; color: var(--muted); font-size: 12px; }
+    .explain b { color: var(--text); }
+    .notice { margin-top: 10px; padding: 9px 11px; border-left: 2px solid var(--yellow); background: var(--panel-2); color: var(--text); font-size: 11px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .step { padding: 13px 15px; }
+    .step i { color: var(--green); font: normal 10px var(--mono); }
+    .step b { display: block; margin: 6px 0 3px; }
+    .step span { color: var(--muted); font-size: 12px; }
+    .message { color: var(--muted); padding: 13px 15px; font-size: 12px; }
+    .message.error { color: var(--red); }
+    footer { border-top: 1px solid var(--line); color: var(--muted); margin-top: 24px; padding-top: 10px; font: 10px var(--mono); }
+    @media (max-width: 850px) {
+      .hero { align-items: start; flex-direction: column; }
+      .grid, .attack-layout { grid-template-columns: 1fr; }
+      .capture-body { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 520px) {
+      .shell { padding-inline: 12px; }
+      .topbar { align-items: start; }
+      .hero-tag { display: none; }
+      .controls { justify-content: center; }
+      .game-footer { align-items: start; flex-direction: column; }
+      .steps { grid-template-columns: 1fr; }
+      .section-head { align-items: start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">D</span><span>DOOM / AI ROBUSTNESS LAB</span></div>
+      <span class="pill offline" id="server-status">MENGHUBUNGKAN...</span>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">DOOM EVASION · LIVE GAME</div>
+        <h1>DOOM EVASION</h1>
+        <p>Kontrol keyboard · live tidak direkam · capture baseline manual hanya disimpan sementara di memori.</p>
+      </div>
+      <div class="hero-tag">DEADLY CORRIDOR<br>30 FPS · LOCAL</div>
+    </section>
+
+    <div class="section-head">
+      <h2>GAME / 01</h2>
+      <span class="section-note">WASD · SPACE · FULLSCREEN</span>
+    </div>
+    <section class="grid">
+      <article class="card game-card" id="game-card">
+        <div class="card-head">
+          <span class="card-title">VIZDOOM · DEADLY CORRIDOR</span>
+          <div class="card-head-actions">
+            <span class="live" id="game-live">MENUNGGU</span>
+            <button type="button" id="fullscreen-game" aria-pressed="false">FULLSCREEN</button>
+          </div>
+        </div>
+        <div class="game-screen-wrap">
+          <img class="screen" id="game-frame" alt="Tampilan permainan ViZDoom secara langsung">
+          <div class="game-overlay">
+            <strong id="live-prediction">MENUNGGU</strong>
+            <span id="live-confidence">—</span>
+            <span id="fps">— FPS</span>
+          </div>
+        </div>
+        <div id="game-error" class="game-error" hidden></div>
+        <div class="controls">
+          <div class="keyboard" aria-label="Kontrol keyboard WASD">
+            <button type="button" class="key key-forward" data-control="forward" aria-label="Maju, W atau panah atas">W</button>
+            <button type="button" class="key key-left" data-control="left" aria-label="Belok kiri, A atau panah kiri">A</button>
+            <button type="button" class="key key-backward" data-control="backward" aria-label="Mundur, S atau panah bawah">S</button>
+            <button type="button" class="key key-right" data-control="right" aria-label="Belok kanan, D atau panah kanan">D</button>
+          </div>
+          <div class="control-hints"><b>W / S</b> GERAK<br><b>A / D</b> BELOK<br><b>C</b> CAPTURE BASELINE</div>
+          <button type="button" class="key space-key" data-control="attack" aria-label="Tembak dengan spasi">SPACE</button>
+          <button type="button" id="capture-baseline">CAPTURE BASELINE [C]</button>
+          <button type="button" class="danger" id="reset-game">RESET</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="baseline-capture" class="card capture-panel" hidden>
+      <div class="card-head">
+        <span class="card-title">CAPTURE TERBARU · BASELINE</span>
+        <span class="live">RAM SAJA</span>
+      </div>
+      <div class="capture-body">
+        <img id="capture-image" alt="Frame yang ditangkap untuk analisis baseline">
+        <div class="capture-info">
+          <strong id="capture-prediction">—</strong>
+          <span id="capture-confidence">—</span>
+          <p>Frame capture dan prediksi live. Evaluasi di bawah menguji gambar input model 84x84; capture berikutnya menggantikan yang ini dan tetap hanya di memori.</p>
+        </div>
+      </div>
+      <div class="capture-tools">
+        <label class="capture-label" for="capture-label">LABEL SEBENARNYA
+          <select id="capture-label">
+            <option value="" selected disabled>Pilih kondisi frame</option>
+            <option value="1">Ada musuh</option>
+            <option value="0">Tidak ada musuh</option>
+          </select>
+        </label>
+        <button type="button" id="evaluate-capture" disabled>UJI FGSM BASELINE</button>
+        <p>Set label sesuai isi frame, lalu bandingkan gambar asli dengan gangguan FGSM eps 0,01 / 0,03 / 0,05. Ini evaluasi satu capture, bukan akurasi dataset.</p>
+      </div>
+      <p id="capture-evaluation-error" class="capture-evaluation-error" role="alert" hidden></p>
+      <div id="capture-evaluation" class="capture-evaluation" aria-live="polite" hidden>
+        <p id="capture-evaluation-summary" class="capture-evaluation-summary"></p>
+        <div id="capture-evaluation-grid" class="capture-evaluation-grid"></div>
+      </div>
+    </section>
+
+    <div class="section-head"><h2>02 / Hasil evaluasi baseline</h2><span class="section-note">Tes resmi pada kumpulan data uji, sebelum FGSM</span></div>
+    <section class="metrics">
+      <article class="card metric"><span>Akurasi data uji</span><strong id="metric-accuracy">—</strong></article>
+      <article class="card metric"><span>Macro F1</span><strong id="metric-f1">—</strong></article>
+      <article class="card metric"><span>Prediksi benar di data uji</span><strong id="metric-correct">—</strong></article>
+      <article class="card metric"><span>Jumlah frame data uji</span><strong id="metric-total">—</strong></article>
+    </section>
+
+    <div class="section-head">
+      <h2>03 / Ketahanan terhadap FGSM</h2>
+      <span class="section-note">Hasil resmi dihitung pada test set, bukan pada game live</span>
+    </div>
+    <section class="attack-layout">
+      <article class="card">
+        <div class="card-head"><span class="card-title">UJI ADVERSARIAL PADA TEST SET</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Epsilon</th><th>Tertipu / awalnya benar</th><th>ASR</th><th>Akurasi sesudah</th></tr></thead>
+            <tbody id="attack-rows"><tr><td colspan="4">Memuat hasil…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="explain"><b>ASR:</b> persentase frame yang awalnya dikenali dengan benar tetapi menjadi salah setelah gambar diubah FGSM. ASR tinggi berarti model lebih mudah dikelabui oleh gangguan tersebut.</div>
+      </article>
+      <article class="card">
+        <div class="card-head">
+          <span class="card-title">CONTOH TEST SET · FRAME ASLI / FGSM / GANGGUAN</span>
+          <label class="section-note" for="example-epsilon">ε
+            <select id="example-epsilon">
+              <option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.05">0.05</option>
+            </select>
+          </label>
+        </div>
+        <div class="attack-image"><img id="official-example" alt="Contoh tetap dari pengujian FGSM test set"></div>
+      </article>
+    </section>
+    <div class="notice"><b>Perlu dibedakan:</b> tabel ASR resmi dihitung pada kumpulan test set yang tetap, bukan dari frame live.</div>
+
+    <div class="section-head"><h2>04 / Alur eksperimen</h2></div>
+    <section class="steps">
+      <article class="card step"><i>01 — MAIN</i><b>Masukan game berubah</b><span>Keyboard mengendalikan permainan ViZDoom di komputer ini.</span></article>
+      <article class="card step"><i>02 — KLASIFIKASI</i><b>CNN menilai setiap frame</b><span>Model mengeluarkan satu label: ada musuh atau tidak.</span></article>
+      <article class="card step"><i>03 — UJI ROBUSTNESS</i><b>FGSM mengubah satu frame</b><span>Bandingkan jawaban model sebelum dan setelah gangguan digital.</span></article>
+    </section>
+    <footer>DOOM EVASION · LOCAL DEMO · FRAME GAME TIDAK DIKIRIM KE SERVER LUAR</footer>
+  </main>
+  <script>
+    const className = value => Number(value) === 1 ? "ADA MUSUH" : "TIDAK ADA MUSUH";
+    const percent = value => `${(Number(value) * 100).toFixed(2)}%`;
+    const pressed = {forward: false, backward: false, left: false, right: false, attack: false};
+    let active = true;
+    let frameBusy = false;
+    let lastFrame = null;
+    const frameImage = document.getElementById("game-frame");
+    const gameError = document.getElementById("game-error");
+    const gameCard = document.getElementById("game-card");
+    const fullscreenButton = document.getElementById("fullscreen-game");
+    const capturePanel = document.getElementById("baseline-capture");
+    const captureButton = document.getElementById("capture-baseline");
+    const captureLabel = document.getElementById("capture-label");
+    const evaluateCaptureButton = document.getElementById("evaluate-capture");
+    const captureEvaluationPanel = document.getElementById("capture-evaluation");
+    const captureEvaluationError = document.getElementById("capture-evaluation-error");
+    let captureAvailable = false;
+    let captureEvaluation = null;
+
+    async function postJson(path, data) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Permintaan gagal (${response.status})`);
+      return result;
+    }
+
+    async function updateControls() {
+      try {
+        await postJson("/api/input", pressed);
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function showError(message) {
+      gameError.textContent = message;
+      gameError.hidden = false;
+    }
+
+    function syncControlButtons() {
+      document.querySelectorAll("[data-control]").forEach(button => {
+        const control = button.dataset.control;
+        button.classList.toggle("pressed", pressed[control]);
+        if (control === "forward" || control === "backward") {
+          button.setAttribute("aria-pressed", String(pressed[control]));
+        }
+      });
+    }
+
+    function setKey(key, isDown) {
+      let control;
+      if (key === "w" || key === "arrowup") control = "forward";
+      else if (key === "s" || key === "arrowdown") control = "backward";
+      else if (key === "a" || key === "arrowleft") control = "left";
+      else if (key === "d" || key === "arrowright") control = "right";
+      else if (key === " " || key === "spacebar") control = "attack";
+      else return false;
+      if (pressed[control] === isDown) return true;
+      pressed[control] = isDown;
+      syncControlButtons();
+      updateControls();
+      return true;
+    }
+
+    window.addEventListener("keydown", event => {
+      const target = event.target;
+      const isEditing = target instanceof HTMLElement &&
+        (target.isContentEditable || target.matches("input, textarea, select"));
+      const key = event.key.toLowerCase();
+      if (key === "c" && !event.repeat && !event.ctrlKey && !event.altKey &&
+          !event.metaKey && !isEditing) {
+        event.preventDefault();
+        captureButton.click();
+        return;
+      }
+      if (setKey(key, true)) event.preventDefault();
+    });
+    window.addEventListener("keyup", event => {
+      if (setKey(event.key.toLowerCase(), false)) event.preventDefault();
+    });
+    window.addEventListener("blur", () => {
+      if (!Object.values(pressed).some(Boolean)) return;
+      Object.keys(pressed).forEach(key => { pressed[key] = false; });
+      syncControlButtons();
+      updateControls();
+    });
+    document.querySelectorAll("[data-control]").forEach(button => {
+      const control = button.dataset.control;
+      if (control === "forward" || control === "backward") {
+        button.setAttribute("aria-pressed", "false");
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          pressed[control] = !pressed[control];
+          syncControlButtons();
+          updateControls();
+        });
+        return;
+      }
+      const release = event => {
+        event.preventDefault();
+        if (!pressed[control]) return;
+        pressed[control] = false;
+        button.classList.remove("pressed");
+        updateControls();
+      };
+      button.addEventListener("pointerdown", event => {
+        event.preventDefault();
+        if (pressed[control]) return;
+        pressed[control] = true;
+        button.classList.add("pressed");
+        updateControls();
+      });
+      button.addEventListener("pointerup", release);
+      button.addEventListener("pointercancel", release);
+      button.addEventListener("lostpointercapture", release);
+    });
+    document.getElementById("reset-game").addEventListener("click", async () => {
+      Object.keys(pressed).forEach(key => { pressed[key] = false; });
+      syncControlButtons();
+      try { await postJson("/api/reset", {}); }
+      catch (error) { showError(error.message); }
+    });
+
+    function showBaselineCapture(capture) {
+      if (!capture.frame) return;
+      document.getElementById("capture-image").src = `data:image/jpeg;base64,${capture.frame}`;
+      document.getElementById("capture-prediction").textContent = className(capture.prediction);
+      document.getElementById("capture-confidence").textContent =
+        `Keyakinan ${(capture.confidence * 100).toFixed(1)}%`;
+      captureAvailable = true;
+      captureEvaluation = capture.evaluation || null;
+      captureLabel.value = captureEvaluation ? String(captureEvaluation.label) : "";
+      capturePanel.hidden = false;
+      if (captureEvaluation) renderCaptureEvaluation(captureEvaluation);
+      else captureEvaluationPanel.hidden = true;
+      syncEvaluateCaptureButton();
+    }
+
+    function syncEvaluateCaptureButton() {
+      evaluateCaptureButton.disabled = !captureAvailable || captureLabel.value === "";
+    }
+
+    function renderCaptureEvaluation(evaluation) {
+      const cleanSample = evaluation.samples[0];
+      const cleanStatus = evaluation.label === 1
+        ? (cleanSample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
+        : (cleanSample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
+      document.getElementById("capture-evaluation-summary").textContent =
+        `Label sebenarnya: ${className(evaluation.label)} · Frame asli: ${cleanStatus}`;
+      const grid = document.getElementById("capture-evaluation-grid");
+      grid.replaceChildren();
+      evaluation.samples.forEach(sample => {
+        const matchesLabel = sample.correct;
+        const status = evaluation.label === 1
+          ? (sample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
+          : (sample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
+        const card = document.createElement("article");
+        card.className = "capture-sample";
+        const heading = document.createElement("h3");
+        heading.textContent = sample.epsilon === 0
+          ? "ASLI · INPUT MODEL 84x84"
+          : `FGSM · EPS ${sample.epsilon.toFixed(2)}`;
+        const image = document.createElement("img");
+        image.src = `data:image/png;base64,${sample.image}`;
+        image.alt = `Input model ${heading.textContent}`;
+        const prediction = document.createElement("p");
+        prediction.textContent =
+          `Prediksi: ${className(sample.prediction)} · ${(sample.confidence * 100).toFixed(1)}%`;
+        const result = document.createElement("p");
+        result.className = `capture-sample-status ${matchesLabel ? "good" : "bad"}`;
+        result.textContent = status;
+        card.append(heading, image, prediction, result);
+        grid.append(card);
+      });
+      captureEvaluationPanel.hidden = false;
+    }
+
+    captureButton.addEventListener("click", async () => {
+      captureButton.disabled = true;
+      try {
+        showBaselineCapture(await postJson("/api/capture", {}));
+        captureEvaluationError.hidden = true;
+        capturePanel.scrollIntoView({behavior: "smooth", block: "nearest"});
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        captureButton.disabled = false;
+      }
+    });
+
+    captureLabel.addEventListener("change", () => {
+      if (captureEvaluation && Number(captureLabel.value) !== captureEvaluation.label) {
+        captureEvaluation = null;
+        captureEvaluationPanel.hidden = true;
+      }
+      syncEvaluateCaptureButton();
+    });
+
+    evaluateCaptureButton.addEventListener("click", async () => {
+      evaluateCaptureButton.disabled = true;
+      captureButton.disabled = true;
+      captureEvaluationError.hidden = true;
+      try {
+        captureEvaluation = await postJson("/api/evaluate-capture", {
+          label: Number(captureLabel.value)
+        });
+        renderCaptureEvaluation(captureEvaluation);
+        capturePanel.scrollIntoView({behavior: "smooth", block: "nearest"});
+      } catch (error) {
+        captureEvaluationError.textContent = error.message;
+        captureEvaluationError.hidden = false;
+      } finally {
+        captureButton.disabled = false;
+        syncEvaluateCaptureButton();
+      }
+    });
+
+    async function restoreBaselineCapture() {
+      try {
+        const response = await fetch("/api/capture", {cache: "no-store"});
+        if (!response.ok) throw new Error(`Capture tidak dapat dimuat (${response.status})`);
+        showBaselineCapture(await response.json());
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    fullscreenButton.addEventListener("click", async () => {
+      try {
+        if (document.fullscreenElement === gameCard) await document.exitFullscreen();
+        else await gameCard.requestFullscreen();
+      } catch (error) {
+        showError(`Fullscreen tidak tersedia: ${error.message}`);
+      }
+    });
+    document.addEventListener("fullscreenchange", () => {
+      const fullscreen = document.fullscreenElement === gameCard;
+      fullscreenButton.textContent = fullscreen ? "KELUAR FULLSCREEN" : "FULLSCREEN";
+      fullscreenButton.setAttribute("aria-pressed", String(fullscreen));
+    });
+
+    async function pollFrame() {
+      if (!active || frameBusy) return;
+      frameBusy = true;
+      try {
+        const response = await fetch("/api/status", {cache: "no-store"});
+        if (!response.ok) throw new Error(`Server tidak merespons (${response.status})`);
+        const data = await response.json();
+        const online = data.ready && !data.error;
+        document.getElementById("server-status").textContent = online ? "GAME ONLINE" : "GAME OFFLINE";
+        document.getElementById("server-status").classList.toggle("offline", !online);
+        document.getElementById("game-live").textContent = online ? "LIVE" : "MENUNGGU";
+        document.getElementById("game-card").classList.toggle("offline", !online);
+        if (data.frame) {
+          if (data.frame !== lastFrame) {
+            frameImage.src = `data:image/jpeg;base64,${data.frame}`;
+            lastFrame = data.frame;
+          }
+          const livePrediction = document.getElementById("live-prediction");
+          livePrediction.textContent = className(data.prediction);
+          livePrediction.classList.remove("bad");
+          document.getElementById("live-confidence").textContent = `${(data.confidence * 100).toFixed(1)}% yakin`;
+          document.getElementById("fps").textContent = `${data.fps.toFixed(1)} FPS`;
+          gameError.hidden = !data.error;
+        }
+        if (data.error) showError(data.error);
+        if (data.baseline_metrics && data.attack_metrics) renderMetrics(data.baseline_metrics, data.attack_metrics);
+      } catch (error) {
+        document.getElementById("server-status").textContent = "SERVER OFFLINE";
+        document.getElementById("server-status").classList.add("offline");
+        document.getElementById("game-live").textContent = "OFFLINE";
+        showError(`Jalankan server dengan perintah py live_demo.py. ${error.message}`);
+      } finally {
+        frameBusy = false;
+        if (active) window.setTimeout(pollFrame, 33);
+      }
+    }
+
+    let metricsRendered = false;
+    function renderMetrics(baseline, attack) {
+      if (metricsRendered) return;
+      metricsRendered = true;
+      document.getElementById("metric-accuracy").textContent = percent(baseline.test.accuracy);
+      document.getElementById("metric-f1").textContent = percent(baseline.test.macro_f1);
+      document.getElementById("metric-correct").textContent = `${attack.initially_correct} / ${attack.test_n}`;
+      document.getElementById("metric-total").textContent = attack.test_n;
+      document.getElementById("attack-rows").replaceChildren(...attack.per_epsilon.map(item => {
+        const row = document.createElement("tr");
+        [item.epsilon.toFixed(2), `${item.flipped} / ${item.denominator}`,
+          percent(item.asr), percent(item.adv_accuracy)].forEach((value, index) => {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          if (index === 2) cell.className = "emph";
+          row.appendChild(cell);
+        });
+        return row;
+      }));
+      updateOfficialExample();
+    }
+
+    function updateOfficialExample() {
+      document.getElementById("official-example").src =
+        `/assets/fgsm/examples_eps_${document.getElementById("example-epsilon").value}.png`;
+    }
+    document.getElementById("example-epsilon").addEventListener("change", updateOfficialExample);
+    restoreBaselineCapture();
+
+    window.addEventListener("beforeunload", () => {
+      active = false;
+      Object.keys(pressed).forEach(key => { pressed[key] = false; });
+      navigator.sendBeacon("/api/input", new Blob([JSON.stringify(pressed)], {type: "application/json"}));
+    });
+    pollFrame();
+  </script>
+</body>
+</html>
