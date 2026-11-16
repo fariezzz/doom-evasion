@@ -1,12 +1,3 @@
-"""Analisis baca-saja: duplikasi frame antar episode.
-
-Memeriksa apakah langkah awal episode hampir identik antar episode
-(berisiko bocor saat split per episode) dan menghitung frame yang
-pikselnya persis sama. Tidak menulis apa pun, hanya mencetak statistik.
-Contoh:
-    python analyze_duplicates.py data_center_v2_shoot data_center_v2_turn
-"""
-
 import argparse
 import glob
 import hashlib

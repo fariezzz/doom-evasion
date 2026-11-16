@@ -1,17 +1,3 @@
-"""Bangun dataset final DoomEvasion: hapus duplikat, lalu split per episode.
-
-Membaca manifest.csv di folder data, menghapus frame duplikat persis
-(hash piksel MD5, kemunculan pertama yang dipertahankan), lalu membagi
-episode menjadi train/val/test 70/15/15 dengan shuffle deterministik.
-Tidak ada episode yang sama di dua split, dan tiap split harus punya
-dua kelas, kalau tidak script berhenti dengan pesan jelas.
-Output di folder data yang sama: split_train.csv, split_val.csv,
-split_test.csv (baris manifest yang lolos dedup), dan
-dataset_summary.txt berisi hitungan lengkap.
-Contoh:
-    python build_dataset.py --data data_final --split-seed 12345
-"""
-
 import argparse
 import csv
 import hashlib

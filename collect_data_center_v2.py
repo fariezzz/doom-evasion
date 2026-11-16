@@ -1,27 +1,3 @@
-"""Kumpul data pilot v2 DoomEvasion di skenario defend_the_center.
-
-Tujuan v2: mengukur, bukan mengubah aturan label. Pilot v1 (turn-only)
-menghasilkan 1286 frame dengan kelas 0 hanya 23 frame (1,8 persen),
-semuanya dalam satu rentang langkah di satu episode. V2 mencatat
-ukuran kotak label monster per frame, supaya distribusi ukuran monster
-bisa dihitung dan efek aturan ukuran minimum bisa disimulasikan tanpa
-mengulang pengambilan data. V2 juga menambah policy shoot untuk
-mengukur apakah menembak monster yang berada di tengah bidikan
-menciptakan lebih banyak pandangan kosong (monster mati lalu respawn).
-Aturan label tetap: 1 kalau ada label kategori Monster, 0 kalau tidak.
-Kolom tambahan di manifest: monster_count, monster_boxes
-(format x,y,w,h per monster, koordinat buffer 320x240), max_monster_h
-(tinggi kotak monster terbesar, 0 kalau tidak ada monster).
-Policy turn: hanya belok kiri/kanan dan diam, tanpa ATTACK.
-Policy shoot: tembak kalau pusat kotak monster berada dalam pita
-tengah layar (x pusat 120 sampai 200 dari lebar 320), selain itu
-belok seperti policy turn. Policy ini hanya untuk pengambilan data,
-model hanya melihat piksel.
-Contoh:
-    python collect_data_center_v2.py --policy turn --episodes 8 --max-steps 600 --seed-start 300 --out data_center_v2_turn
-    python collect_data_center_v2.py --policy shoot --episodes 8 --max-steps 600 --seed-start 300 --out data_center_v2_shoot
-"""
-
 import argparse
 import csv
 import os

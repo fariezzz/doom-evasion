@@ -1,29 +1,3 @@
-"""Latih model mitigasi DoomEvasion dengan adversarial training (Langkah 5).
-
-Melatih ulang CNN yang sama dari nol (bukan fine-tune dari best_model.pt),
-dengan tiap batch dicampur contoh FGSM pada epsilon menengah 0,03. Split,
-seed, batch, optimizer, epoch, dan class weight SAMA PERSIS dengan baseline,
-supaya perbandingan sebelum dan sesudah mitigasi adil. Satu-satunya yang
-berubah adalah data latihnya: loss tiap batch adalah rata-rata loss bersih
-dan loss adversarial.
-
-Model, dataset, evaluasi, dan gambar confusion matrix dipakai ulang dari
-train_baseline.py, supaya tidak ada perbedaan arsitektur atau metrik.
-Checkpoint terbaik dipilih dari macro-F1 val BERSIH, sama seperti baseline.
-
-Jalankan dari folder doom-evasion dengan venv aktif.
-Contoh run penuh:
-    python train_mitigation.py --data data_final --epochs 10 --out runs/mitigation
-Contoh smoke test (verifikasi script jalan, BUKAN hasil mitigasi):
-    python train_mitigation.py --data data_final --epochs 1 --limit 64 --out runs/smoke_mitigation
-Uji ulang serangan ke model mitigasi (skrip serangan tidak diubah):
-    python attack_fgsm.py --model runs/mitigation/best_model.pt --out runs/fgsm_mitigated
-Output di folder --out: best_model.pt, final_model.pt,
-training_log.csv, confusion_matrix_test.png, test_metrics.json,
-run_config.txt. Kolom training_log.csv sama dengan baseline; train_loss
-adalah rata-rata loss bersih dan loss adversarial.
-"""
-
 import argparse
 import csv
 import json

@@ -1,22 +1,3 @@
-"""Kumpul data final DoomEvasion di skenario defend_the_center.
-
-Protokol final, disetujui user 14 November 2026 malam:
-- Policy shoot: belok kiri/kanan dan diam, tembak kalau pusat kotak
-  monster berada dalam pita tengah layar. Label ViZDoom hanya dipakai
-  untuk menggerakkan kolektor, bukan input model.
-- Lewati 25 langkah awal tiap episode (langkah 0-10 identik persis
-  antar episode pada pilot, jadi harus dibuang supaya tidak bocor
-  antar split).
-- Simpan tiap 2 langkah (stride 2) untuk mengurangi frame berurutan
-  yang identik.
-- 30 episode, seed 400-429. Duplikat persis dihapus belakangan oleh
-  build_dataset.py saat membangun split.
-- Aturan label tetap: 1 kalau ada label kategori Monster, 0 kalau
-  tidak. Kolom manifest sama dengan collect_data_center_v2.py.
-Contoh:
-    python collect_data_final.py --episodes 30 --max-steps 600 --seed-start 400 --out data_final --policy shoot --skip-steps 25 --stride 2
-"""
-
 import argparse
 import csv
 import os

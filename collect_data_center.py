@@ -1,19 +1,3 @@
-"""Kumpul data pilot DoomEvasion di skenario defend_the_center.
-
-Alasan pindah skenario: pilot 1 di basic menghasilkan 1500 frame yang
-semuanya kelas 1, karena monster selalu terlihat. Di defend_the_center
-pemain diam di tengah arena lingkaran dan hanya bisa belok, jadi
-memutar badan bisa menghasilkan pandangan tanpa monster.
-Aturan label sementara: 1 kalau ada label kategori Monster, 0 kalau
-tidak. Nama dan kategori label dicatat per frame di manifest, supaya
-aturannya bisa diperiksa ulang setelah pilot jalan.
-Aksi pilot: hanya belok kiri/kanan dan diam, tanpa ATTACK. Episode
-bisa berakhir karena pemain mati, jadi panjang episode ikut dicatat.
-Jalankan dari folder doom-evasion dengan venv aktif:
-    python collect_data_center.py --episodes 5 --max-steps 600
-Output: folder data_center berisi PNG per episode dan manifest.csv.
-"""
-
 import argparse
 import csv
 import os

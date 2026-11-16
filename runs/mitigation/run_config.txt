@@ -1,0 +1,2 @@
+method=adversarial_training train_eps=0.03 data=data_final epochs=10 batch_size=32 lr=0.001 seed=12345 limit=0 class_weight=True
+torch=2.15.0+cpu sklearn=1.9.1 device=cpu params=1731458 elapsed_seconds=648.5

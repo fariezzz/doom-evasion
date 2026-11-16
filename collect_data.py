@@ -1,14 +1,3 @@
-"""Kumpul data pilot DoomEvasion: frame grayscale 84x84 dari skenario basic.
-
-Aturan label: 1 kalau ada label kategori Monster, 0 kalau tidak.
-Label Self (DoomPlayer) diabaikan, jangan pakai jumlah label mentah.
-Aksi pilot: hanya geser kiri/kanan dan diam, tanpa ATTACK, supaya
-monster tidak langsung mati dan episode jalan sampai timeout.
-Jalankan dari folder doom-evasion dengan venv aktif:
-    python collect_data.py --episodes 5 --max-steps 300
-Output: folder data_raw berisi PNG per episode dan manifest.csv.
-"""
-
 import argparse
 import csv
 import os

@@ -1,25 +1,3 @@
-"""Latih CNN baseline DoomEvasion (Langkah 3).
-
-Membaca split_train.csv, split_val.csv, split_test.csv di folder data
-(hasil build_dataset.py), melatih CNN kecil grayscale 84x84, lalu
-mengukur akurasi, precision, recall, F1, dan confusion matrix di test.
-Arsitektur sesuai rencana: 3 blok konvolusi + ReLU + maxpool, dropout
-kecil, output 2 logit, loss CrossEntropyLoss, optimizer Adam, batch 32.
-Class weight default AKTIF (dihitung dari split train saja) karena
-dataset tidak seimbang (kelas 0 sekitar 20 persen); matikan dengan
---no-class-weight untuk perbandingan. Model terbaik dipilih dari
-macro-F1 di val, lalu diuji di test. Semua angka di laporan harus
-berasal dari run penuh script ini, bukan dari smoke test.
-Jalankan dari folder doom-evasion dengan venv aktif.
-Contoh run penuh:
-    python train_baseline.py --data data_final --epochs 10 --out runs/baseline
-Contoh smoke test (verifikasi script jalan, BUKAN hasil baseline):
-    python train_baseline.py --data data_final --epochs 1 --limit 64 --out runs/smoke
-Output di folder --out: best_model.pt, final_model.pt,
-training_log.csv, confusion_matrix_test.png, test_metrics.json,
-run_config.txt.
-"""
-
 import argparse
 import csv
 import json

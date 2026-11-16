@@ -1,21 +1,3 @@
-"""Serangan Fast Gradient Sign Method (FGSM) ke CNN baseline DoomEvasion (Langkah 4).
-
-Memuat model terbaik dari runs/baseline/best_model.pt, menyerang tiap
-frame test dengan FGSM pada 3 epsilon, dan menghitung Attack Success
-Rate (ASR) hanya dari sampel test yang awalnya diprediksi benar.
-Gradien dihitung sekali per sampel dari frame bersih, lalu dipakai
-untuk ketiga epsilon (FGSM standar: gradien tidak bergantung epsilon).
-Rumus: x_adv = clip(x + epsilon * sign(gradien), 0, 1), skala 0 sampai 1.
-Jalankan dari folder doom-evasion dengan venv aktif.
-Contoh run penuh:
-    python attack_fgsm.py --data data_final --model runs/baseline/best_model.pt --out runs/fgsm
-Contoh smoke test (verifikasi script jalan, BUKAN hasil serangan):
-    python attack_fgsm.py --data data_final --model runs/baseline/best_model.pt --limit 32 --out runs/fgsm_smoke
-Output di folder --out: attack_results.json, attack_log.csv, dan
-gambar contoh examples_eps_<nilai>.png per epsilon (baris = sampel,
-kolom = bersih, adversarial, perturbasi yang diperkuat 20x).
-"""
-
 import argparse
 import csv
 import json

@@ -29,6 +29,11 @@ runs/smoke/
 runs/fgsm/
 runs/fgsm_smoke/
 
+# MNIST practice data and outputs: practice material, not project results.
+# The practice script itself (mnist_latihan.py) is NOT ignored.
+data_mnist/
+runs/mnist_latihan*/
+
 # Editor
 .vscode/
 .idea/
