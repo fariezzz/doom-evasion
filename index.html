@@ -78,7 +78,7 @@
     }
     button:hover { border-color: var(--yellow); color: var(--yellow); }
     button:active, button.pressed { background: #6b2b18; border-color: var(--yellow); color: #fff1c8; }
-    button:disabled { opacity: .55; cursor: wait; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
     button.danger { border-color: var(--red); color: var(--red); }
     button:focus-visible, select:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
     .control-hints { color: var(--muted); font-size: 10px; line-height: 1.7; }
@@ -119,6 +119,10 @@
     td.emph { color: var(--yellow); font-weight: 700; }
     .attack-image { padding: 10px; }
     .attack-image img { display: block; width: 100%; height: auto; }
+    .download-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0 0; }
+    .download-row span { color: var(--muted); font-size: 11px; }
+    .sample-download { display: inline-block; margin-top: 7px; background: #21130d; color: var(--text); border: 1px solid #a34a2c; padding: 5px 8px; font: 700 11px var(--mono); text-decoration: none; cursor: pointer; }
+    .sample-download:hover { border-color: var(--yellow); color: var(--yellow); }
     .explain { padding: 13px 15px; color: var(--muted); font-size: 12px; }
     .explain b { color: var(--text); }
     .notice { margin-top: 10px; padding: 9px 11px; border-left: 2px solid var(--yellow); background: var(--panel-2); color: var(--text); font-size: 11px; }
@@ -199,7 +203,7 @@
             <button type="button" class="key key-backward" data-control="backward" aria-label="Mundur, S atau panah bawah">S</button>
             <button type="button" class="key key-right" data-control="right" aria-label="Belok kanan, D atau panah kanan">D</button>
           </div>
-          <div class="control-hints"><b>W / S</b> GERAK<br><b>A / D</b> BELOK<br><b>MOUSE</b> BIDIK + TEMBAK<br><b>C</b> CAPTURE BASELINE</div>
+          <div class="control-hints" id="control-hints"><b>W / S</b> GERAK<br><b>A / D</b> <span id="hint-turn-kind">BELOK</span><br><b>MOUSE</b> <span id="hint-mouse-kind">BIDIK + TEMBAK</span><br><b>C</b> CAPTURE BASELINE</div>
           <button type="button" class="key space-key" data-control="attack" aria-label="Tembak dengan spasi">SPACE</button>
           <button type="button" id="capture-baseline">CAPTURE BASELINE [C]</button>
           <button type="button" class="danger" id="reset-game">RESET</button>
@@ -230,6 +234,8 @@
           </select>
         </label>
         <button type="button" id="evaluate-capture" disabled>UJI FGSM BASELINE</button>
+        <button type="button" id="download-capture" disabled>UNDUH FRAME CAPTURE</button>
+        <button type="button" id="download-evaluation" disabled>UNDUH HASIL EVALUASI (JSON)</button>
         <p>Set label sesuai isi frame, lalu bandingkan gambar asli dengan gangguan FGSM eps 0,01 / 0,03 / 0,05. Ini evaluasi satu capture, bukan akurasi dataset.</p>
       </div>
       <p id="capture-evaluation-error" class="capture-evaluation-error" role="alert" hidden></p>
@@ -276,7 +282,42 @@
     </section>
     <div class="notice"><b>Perlu dibedakan:</b> tabel ASR resmi dihitung pada kumpulan test set yang tetap, bukan dari frame live.</div>
 
-    <div class="section-head"><h2>04 / Alur eksperimen</h2></div>
+    <div class="section-head"><h2>04 / Hasil sesudah mitigasi</h2><span class="section-note">Adversarial training, train eps 0,03, diuji ulang pada test set yang sama</span></div>
+    <section class="metrics">
+      <article class="card metric"><span>Akurasi data uji sesudah mitigasi</span><strong id="metric-mitigation-accuracy">-</strong></article>
+      <article class="card metric"><span>Macro F1 sesudah mitigasi</span><strong id="metric-mitigation-f1">-</strong></article>
+      <article class="card metric"><span>Prediksi benar di data uji</span><strong id="metric-mitigation-correct">-</strong></article>
+      <article class="card metric"><span>Harga akurasi bersih</span><strong id="metric-mitigation-cost">-</strong></article>
+    </section>
+    <section class="attack-layout">
+      <article class="card">
+        <div class="card-head"><span class="card-title">ASR SEBELUM VS SESUDAH MITIGASI</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Epsilon</th><th>ASR sebelum</th><th>ASR sesudah</th><th>Penurunan ASR</th><th>Akurasi sesudah (sebelum)</th><th>Akurasi sesudah (sesudah)</th></tr></thead>
+            <tbody id="mitigation-rows"><tr><td colspan="6">Memuat hasil…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="explain" id="mitigation-explain"><b>Mitigasi:</b> model dilatih ulang dari nol dengan contoh adversarial pada train eps 0,03, memakai split dan seed yang sama dengan baseline. <b>Harga:</b> akurasi bersih dan macro-F1 turun, karena model mengorbankan sebagian ketepatan pada gambar bersih demi ketahanan. <b>Catatan penyebut:</b> ASR dihitung hanya dari frame yang awalnya dikenali benar, jadi penyebut sebelum mitigasi 544 dan sesudah mitigasi 513.</div>
+      </article>
+      <article class="card">
+        <div class="card-head">
+          <span class="card-title">CONTOH TEST SET SESUDAH MITIGASI · FRAME ASLI / FGSM / GANGGUAN</span>
+          <label class="section-note" for="example-epsilon-mitigated">ε
+            <select id="example-epsilon-mitigated">
+              <option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.05">0.05</option>
+            </select>
+          </label>
+        </div>
+        <div class="attack-image"><img id="mitigated-example" alt="Contoh tetap dari pengujian FGSM test set sesudah mitigasi"></div>
+      </article>
+    </section>
+    <div class="download-row">
+      <button type="button" id="download-official" disabled>UNDUH HASIL RESMI (JSON)</button>
+      <span>Hasil resmi baseline, serangan, dan mitigasi dalam satu berkas, untuk dipakai di laporan.</span>
+    </div>
+
+    <div class="section-head"><h2>05 / Alur eksperimen</h2></div>
     <section class="steps">
       <article class="card step"><i>01 — MAIN</i><b>Masukan game berubah</b><span>Keyboard dan mouse mengendalikan permainan ViZDoom di komputer ini.</span></article>
       <article class="card step"><i>02 — KLASIFIKASI</i><b>CNN menilai setiap frame</b><span>Model mengeluarkan satu label: ada musuh atau tidak.</span></article>
@@ -299,11 +340,17 @@
     const captureButton = document.getElementById("capture-baseline");
     const captureLabel = document.getElementById("capture-label");
     const evaluateCaptureButton = document.getElementById("evaluate-capture");
+    const downloadCaptureButton = document.getElementById("download-capture");
+    const downloadEvaluationButton = document.getElementById("download-evaluation");
+    const downloadOfficialButton = document.getElementById("download-official");
     const captureEvaluationPanel = document.getElementById("capture-evaluation");
     const captureEvaluationError = document.getElementById("capture-evaluation-error");
     let captureAvailable = false;
     let captureEvaluation = null;
+    let lastCapture = null;
+    let lastOfficialResults = null;
     let availableControls = {forward: false, backward: false, left: false, right: false, attack: false};
+    let canTurn = true;
     let lastMapsSignature = "";
     let currentMapId = null;
     let pendingMapId = null;
@@ -464,25 +511,44 @@
       }
     });
 
+    function updateControlHints() {
+      document.getElementById("hint-turn-kind").textContent = canTurn ? "BELOK" : "GESER";
+      document.getElementById("hint-mouse-kind").textContent = canTurn ? "BIDIK + TEMBAK" : "TIDAK BELOK DI MAP INI";
+      document.querySelector('[data-control="left"]').setAttribute("aria-label", canTurn ? "Belok kiri, A atau panah kiri" : "Geser kiri, A atau panah kiri");
+      document.querySelector('[data-control="right"]').setAttribute("aria-label", canTurn ? "Belok kanan, D atau panah kanan" : "Geser kanan, D atau panah kanan");
+    }
+
+    function syncMouseHint() {
+      if (mouseLocked) {
+        mouseHint.textContent = canTurn
+          ? "MOUSE AKTIF · ESC UNTUK LEPAS"
+          : "MOUSE AKTIF · TIDAK BELOK DI MAP INI · ESC UNTUK LEPAS";
+      } else {
+        mouseHint.textContent = canTurn
+          ? "KLIK FRAME UNTUK KONTROL MOUSE"
+          : "MOUSE TIDAK BELOK DI MAP INI";
+      }
+      mouseHint.classList.toggle("active", mouseLocked);
+    }
+
     let mouseDelta = 0;
-    let mouseSendBusy = false;
     let mouseLocked = false;
     let mouseAttack = false;
 
-    async function flushMouseDelta() {
-      if (mouseSendBusy || mouseDelta === 0) return;
+    function flushMouseDelta() {
+      if (mouseDelta === 0 || !canTurn) {
+        mouseDelta = 0;
+        return;
+      }
       const delta = mouseDelta;
       mouseDelta = 0;
-      mouseSendBusy = true;
-      try {
-        await postJson("/api/turn", {delta});
-      } catch (error) {
-        // Mouse failure must not break keyboard play; the next status poll
-        // shows the server state.
-      }
-      mouseSendBusy = false;
+      // Fire and forget: awaiting each mouse POST one by one added lag
+      // under load, and the server drops stale turn input on its own.
+      // A failed mouse POST must not break keyboard play; the next status
+      // poll shows the server state.
+      postJson("/api/turn", {delta}).catch(() => {});
     }
-    window.setInterval(() => { if (mouseLocked) flushMouseDelta(); }, 50);
+    window.setInterval(() => { if (mouseLocked) flushMouseDelta(); }, 16);
 
     screenWrap.addEventListener("click", () => {
       if (mouseLocked || !screenWrap.requestPointerLock) return;
@@ -493,12 +559,10 @@
     });
     document.addEventListener("pointerlockchange", () => {
       mouseLocked = document.pointerLockElement === screenWrap;
-      mouseHint.textContent = mouseLocked
-        ? "MOUSE AKTIF · ESC UNTUK LEPAS"
-        : "KLIK FRAME UNTUK KONTROL MOUSE";
-      mouseHint.classList.toggle("active", mouseLocked);
+      syncMouseHint();
       if (!mouseLocked) {
         mouseDelta = 0;
+        postJson("/api/turn", {cancel: true}).catch(() => {});
         if (mouseAttack) {
           mouseAttack = false;
           pressed.attack = false;
@@ -508,7 +572,7 @@
       }
     });
     document.addEventListener("mousemove", event => {
-      if (mouseLocked) mouseDelta += event.movementX || 0;
+      if (mouseLocked && canTurn) mouseDelta += event.movementX || 0;
     });
     document.addEventListener("mousedown", event => {
       if (!mouseLocked || event.button !== 0 || mouseAttack) return;
@@ -532,6 +596,33 @@
       catch (error) { showError(error.message); }
     });
 
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function downloadJson(data, filename) {
+      downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"}), filename);
+    }
+
+    function downloadBase64Image(base64, mime, filename) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      downloadBlob(new Blob([bytes], {type: mime}), filename);
+    }
+
+    function syncDownloadButtons() {
+      downloadCaptureButton.disabled = !captureAvailable || !lastCapture || !lastCapture.frame;
+      downloadEvaluationButton.disabled = !captureAvailable || !captureEvaluation;
+    }
+
     function showBaselineCapture(capture) {
       if (!capture.frame) return;
       document.getElementById("capture-image").src = `data:image/jpeg;base64,${capture.frame}`;
@@ -543,6 +634,7 @@
           ? "Label game: —"
           : `Label game: ${className(capture.true_label)}`;
       captureAvailable = true;
+      lastCapture = capture;
       captureEvaluation = capture.evaluation || null;
       captureLabel.value = captureEvaluation
         ? String(captureEvaluation.label)
@@ -551,6 +643,7 @@
       if (captureEvaluation) renderCaptureEvaluation(captureEvaluation);
       else captureEvaluationPanel.hidden = true;
       syncEvaluateCaptureButton();
+      syncDownloadButtons();
     }
 
     function syncEvaluateCaptureButton() {
@@ -586,7 +679,14 @@
         const result = document.createElement("p");
         result.className = `capture-sample-status ${matchesLabel ? "good" : "bad"}`;
         result.textContent = status;
-        card.append(heading, image, prediction, result);
+        const download = document.createElement("a");
+        download.className = "sample-download";
+        download.href = `data:image/png;base64,${sample.image}`;
+        download.download = sample.epsilon === 0
+          ? "input-model-asli.png"
+          : `input-model-fgsm-eps-${sample.epsilon.toFixed(2)}.png`;
+        download.textContent = "UNDUH GAMBAR";
+        card.append(heading, image, prediction, result, download);
         grid.append(card);
       });
       captureEvaluationPanel.hidden = false;
@@ -611,6 +711,7 @@
         captureEvaluationPanel.hidden = true;
       }
       syncEvaluateCaptureButton();
+      syncDownloadButtons();
     });
 
     evaluateCaptureButton.addEventListener("click", async () => {
@@ -629,7 +730,31 @@
       } finally {
         captureButton.disabled = false;
         syncEvaluateCaptureButton();
+        syncDownloadButtons();
       }
+    });
+
+    downloadCaptureButton.addEventListener("click", () => {
+      if (!lastCapture || !lastCapture.frame) return;
+      downloadBase64Image(lastCapture.frame, "image/jpeg", "capture-baseline.jpg");
+    });
+
+    downloadEvaluationButton.addEventListener("click", () => {
+      if (!captureEvaluation || !lastCapture) return;
+      downloadJson({
+        capture: {
+          prediction: lastCapture.prediction,
+          confidence: lastCapture.confidence,
+          true_label: lastCapture.true_label,
+        },
+        evaluation: captureEvaluation,
+        generated_at: new Date().toISOString(),
+      }, "capture-evaluasi.json");
+    });
+
+    downloadOfficialButton.addEventListener("click", () => {
+      if (!lastOfficialResults) return;
+      downloadJson({...lastOfficialResults, generated_at: new Date().toISOString()}, "hasil-resmi-doom-evasion.json");
     });
 
     async function restoreBaselineCapture() {
@@ -689,10 +814,12 @@
         if (currentMapId !== null && data.map_id !== currentMapId) {
           captureAvailable = false;
           captureEvaluation = null;
+          lastCapture = null;
           capturePanel.hidden = true;
           captureEvaluationPanel.hidden = true;
           Object.keys(pressed).forEach(key => { pressed[key] = false; });
           syncControlButtons();
+          syncDownloadButtons();
         }
         currentMapId = data.map_id;
         if (pendingMapId !== null && data.map_id === pendingMapId) {
@@ -704,13 +831,35 @@
         mapWarning.hidden = data.map_trained !== false;
         mapWarning.textContent = "Map ini bukan tempat model dilatih. Model hanya dilatih pada Defend the Center, jadi prediksi di sini tidak dapat diandalkan.";
         applyAvailableControls(data.available_controls);
+        if (typeof data.can_turn === "boolean" && data.can_turn !== canTurn) {
+          canTurn = data.can_turn;
+          updateControlHints();
+          syncMouseHint();
+        }
         if (data.error) showError(data.error);
+        if (data.baseline_metrics && data.attack_metrics) {
+          lastOfficialResults = {
+            baseline_metrics: data.baseline_metrics,
+            attack_metrics: data.attack_metrics,
+            mitigation_metrics: data.mitigation_metrics || null,
+            mitigated_attack_metrics: data.mitigated_attack_metrics || null,
+          };
+        }
         if (!metricsRendered && !metricsFailed && data.baseline_metrics && data.attack_metrics) {
           try {
             renderMetrics(data.baseline_metrics, data.attack_metrics);
+            downloadOfficialButton.disabled = false;
           } catch (error) {
             metricsFailed = true;
             showError(`Hasil evaluasi tidak dapat ditampilkan: ${error.message}`);
+          }
+        }
+        if (!mitigationRendered && !mitigationFailed && data.baseline_metrics && data.attack_metrics) {
+          try {
+            renderMitigation(data.mitigation_metrics, data.mitigated_attack_metrics, data.baseline_metrics, data.attack_metrics);
+          } catch (error) {
+            mitigationFailed = true;
+            showError(`Hasil mitigasi tidak dapat ditampilkan: ${error.message}`);
           }
         }
       } catch (error) {
@@ -726,6 +875,8 @@
 
     let metricsRendered = false;
     let metricsFailed = false;
+    let mitigationRendered = false;
+    let mitigationFailed = false;
     function renderMetrics(baseline, attack) {
       if (metricsRendered) return;
       metricsRendered = true;
@@ -747,11 +898,59 @@
       updateOfficialExample();
     }
 
+    function renderMitigation(mitigation, mitigatedAttack, baseline, attack) {
+      if (mitigationRendered) return;
+      mitigationRendered = true;
+      const rows = document.getElementById("mitigation-rows");
+      if (!mitigation || !mitigation.test || !mitigatedAttack || !mitigatedAttack.per_epsilon || !baseline || !attack) {
+        rows.replaceChildren();
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 6;
+        cell.textContent = "Hasil mitigasi belum tersedia di server. Jalankan train_mitigation.py lalu attack_fgsm.py ke runs/fgsm_mitigated, lalu restart demo.";
+        row.appendChild(cell);
+        rows.appendChild(row);
+        return;
+      }
+      document.getElementById("metric-mitigation-accuracy").textContent = percent(mitigation.test.accuracy);
+      document.getElementById("metric-mitigation-f1").textContent = percent(mitigation.test.macro_f1);
+      document.getElementById("metric-mitigation-correct").textContent = `${mitigatedAttack.initially_correct} / ${mitigatedAttack.test_n}`;
+      const cleanCost = baseline.test.accuracy - mitigation.test.accuracy;
+      document.getElementById("metric-mitigation-cost").textContent = `-${(cleanCost * 100).toFixed(2)} poin`;
+      const beforeByEpsilon = new Map(attack.per_epsilon.map(item => [item.epsilon, item]));
+      rows.replaceChildren(...mitigatedAttack.per_epsilon.map(item => {
+        const before = beforeByEpsilon.get(item.epsilon);
+        const drop = before ? before.asr - item.asr : null;
+        const row = document.createElement("tr");
+        [
+          item.epsilon.toFixed(2),
+          before ? percent(before.asr) : "-",
+          percent(item.asr),
+          drop === null ? "-" : percent(drop),
+          before ? percent(before.adv_accuracy) : "-",
+          percent(item.adv_accuracy),
+        ].forEach((value, index) => {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          if (index === 3) cell.className = "emph";
+          row.appendChild(cell);
+        });
+        return row;
+      }));
+      updateMitigatedExample();
+    }
+
+    function updateMitigatedExample() {
+      document.getElementById("mitigated-example").src =
+        `/assets/fgsm-mitigated/examples_eps_${document.getElementById("example-epsilon-mitigated").value}.png`;
+    }
+
     function updateOfficialExample() {
       document.getElementById("official-example").src =
         `/assets/fgsm/examples_eps_${document.getElementById("example-epsilon").value}.png`;
     }
     document.getElementById("example-epsilon").addEventListener("change", updateOfficialExample);
+    document.getElementById("example-epsilon-mitigated").addEventListener("change", updateMitigatedExample);
     restoreBaselineCapture();
 
     window.addEventListener("beforeunload", () => {

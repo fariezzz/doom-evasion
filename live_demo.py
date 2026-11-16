@@ -75,10 +75,16 @@ MAPS = {
     },
 }
 
-# Mouse look: how many mouse pixels equal one game turn tick, and how many
-# unspent turn ticks may pile up from fast mouse movement.
-TURN_PIXELS_PER_TICK = 6.0
-TURN_IMPULSE_LIMIT = 45.0
+# Mouse look: how many mouse pixels equal one game turn tick, how many
+# unspent turn ticks may pile up, and how long queued turning may survive
+# without fresh mouse input. ViZDoom turning is one binary button press
+# per game tick, so a long queue cannot turn faster, it only keeps the
+# camera moving after the mouse stops: the old limit of 45 ticks meant
+# up to 1.5 seconds of drift at 30 FPS. Keep the queue short and drop
+# stale remainder so the camera stops soon after the mouse does.
+TURN_PIXELS_PER_TICK = 5.0
+TURN_IMPULSE_LIMIT = 10.0
+TURN_IMPULSE_MAX_AGE_SECONDS = 0.12
 
 
 def to_gray_frame(buffer):
@@ -144,6 +150,9 @@ class LiveDemo:
             "attack": False,
         }
         self.turn_impulse = 0.0
+        self.turn_updated_at = time.monotonic()
+        self.turn_seq = 0
+        self.turn_clear_seq = 0
         self.map_requested = None
         self.reset_requested = False
         self.stop_requested = False
@@ -159,6 +168,7 @@ class LiveDemo:
             "map_label": MAPS[map_id]["label"],
             "map_trained": MAPS[map_id]["trained"],
             "available_controls": {name: False for name in self.controls},
+            "can_turn": False,
         }
         self.baseline_capture = None
         self.capture_sequence = 0
@@ -166,12 +176,15 @@ class LiveDemo:
         self.current_true_label = None
         self.baseline_metrics = self._read_json("runs/baseline/test_metrics.json")
         self.attack_metrics = self._read_json("runs/fgsm/attack_results.json")
+        self.mitigation_metrics = self._read_json("runs/mitigation/test_metrics.json")
+        self.mitigated_attack_metrics = self._read_json("runs/fgsm_mitigated/attack_results.json")
 
         # The game object is created lazily by the worker thread, so all
         # ViZDoom calls happen on one thread.
         self.game = None
         self.buttons = []
         self.button_indices = {name: None for name in self.controls}
+        self.turn_indices = {"left": None, "right": None}
         self.worker = threading.Thread(target=self._run_game, name="vizdoom-loop", daemon=True)
         self.worker.start()
 
@@ -186,8 +199,8 @@ class LiveDemo:
     @staticmethod
     def _build_game(map_id):
         """Create and start a game for one map. Returns (game, buttons,
-        button_indices). Raises on failure without touching self, so a
-        failed map switch leaves the running game alone."""
+        button_indices, turn_indices). Raises on failure without touching
+        self, so a failed map switch leaves the running game alone."""
         game = vzd.DoomGame()
         try:
             game.load_config(os.path.join(vzd.scenarios_path, MAPS[map_id]["config"]))
@@ -223,14 +236,22 @@ class LiveDemo:
             "backward": find("MOVE_BACKWARD"),
             "attack": find("ATTACK"),
         }
+        # Mouse look only turns. It must not fall back to strafing: on a
+        # MOVE-only map (basic, take_cover) there is no turning, so mouse
+        # movement does nothing instead of sliding the player sideways.
+        turn_indices = {
+            "left": find("TURN_LEFT"),
+            "right": find("TURN_RIGHT"),
+        }
         game.new_episode()
-        return game, buttons, button_indices
+        return game, buttons, button_indices, turn_indices
 
-    def _apply_game(self, game, buttons, button_indices, map_id):
+    def _apply_game(self, game, buttons, button_indices, turn_indices, map_id):
         old_game = self.game
         self.game = game
         self.buttons = buttons
         self.button_indices = button_indices
+        self.turn_indices = turn_indices
         self.map_id = map_id
         self.turn_impulse = 0.0
         if old_game is not None:
@@ -245,6 +266,9 @@ class LiveDemo:
             self.state["available_controls"] = {
                 name: index is not None for name, index in button_indices.items()
             }
+            self.state["can_turn"] = (
+                turn_indices["left"] is not None and turn_indices["right"] is not None
+            )
 
     def set_controls(self, controls):
         if not isinstance(controls, dict):
@@ -259,7 +283,9 @@ class LiveDemo:
 
     def add_turn(self, delta):
         """Add mouse-look movement. Positive delta turns right, negative
-        turns left. The game loop spends it one turn tick at a time."""
+        turns left. The game loop spends it one turn tick at a time and
+        drops whatever is left once it goes stale, so a fast swipe cannot
+        keep the camera turning long after the mouse stops."""
         if isinstance(delta, bool) or not isinstance(delta, (int, float)):
             raise ValueError("Turn delta must be a number")
         if not math.isfinite(delta) or abs(delta) > 2000:
@@ -269,6 +295,15 @@ class LiveDemo:
                 -TURN_IMPULSE_LIMIT,
                 min(TURN_IMPULSE_LIMIT, self.turn_impulse + delta / TURN_PIXELS_PER_TICK),
             )
+            self.turn_updated_at = time.monotonic()
+            self.turn_seq += 1
+
+    def cancel_turn(self):
+        """Drop all queued mouse turning at once, for example when the
+        browser releases the mouse lock."""
+        with self.lock:
+            self.turn_impulse = 0.0
+            self.turn_clear_seq += 1
 
     def request_map(self, map_id):
         if not isinstance(map_id, str) or map_id not in MAPS:
@@ -276,6 +311,7 @@ class LiveDemo:
         with self.lock:
             self.controls = {name: False for name in self.controls}
             self.turn_impulse = 0.0
+            self.turn_clear_seq += 1
             self.baseline_capture = None
             self.map_requested = map_id
 
@@ -283,6 +319,7 @@ class LiveDemo:
         with self.lock:
             self.controls = {name: False for name in self.controls}
             self.turn_impulse = 0.0
+            self.turn_clear_seq += 1
             self.reset_requested = True
 
     def status(self):
@@ -293,6 +330,8 @@ class LiveDemo:
             "maps": self.maps_info,
             "baseline_metrics": self.baseline_metrics,
             "attack_metrics": self.attack_metrics,
+            "mitigation_metrics": self.mitigation_metrics,
+            "mitigated_attack_metrics": self.mitigated_attack_metrics,
         }
 
     def capture_current_frame(self):
@@ -413,23 +452,25 @@ class LiveDemo:
                     self.map_requested = None
                     controls = dict(self.controls)
                     impulse = self.turn_impulse
+                    impulse_seq = self.turn_seq
+                    impulse_clear_seq = self.turn_clear_seq
                     self.turn_impulse = 0.0
 
                 if map_requested is not None and map_requested != self.map_id:
                     try:
-                        game, buttons, indices = self._build_game(map_requested)
+                        game, buttons, indices, turn_indices = self._build_game(map_requested)
                     except Exception as error:
                         with self.lock:
                             if self.game is None:
                                 raise
                             self.state["error"] = "Gagal pindah map: " + str(error)
                         continue
-                    self._apply_game(game, buttons, indices, map_requested)
+                    self._apply_game(game, buttons, indices, turn_indices, map_requested)
                     impulse = 0.0
 
                 if self.game is None:
-                    game, buttons, indices = self._build_game(self.map_id)
-                    self._apply_game(game, buttons, indices, self.map_id)
+                    game, buttons, indices, turn_indices = self._build_game(self.map_id)
+                    self._apply_game(game, buttons, indices, turn_indices, self.map_id)
 
                 if reset or self.game.is_episode_finished():
                     self.game.new_episode()
@@ -446,22 +487,33 @@ class LiveDemo:
                     if pressed and button_index is not None:
                         action[button_index] = 1
                 if impulse >= 1.0:
-                    turn_index = self.button_indices["right"]
+                    turn_index = self.turn_indices["right"]
                     if turn_index is not None:
                         action[turn_index] = 1
                         impulse -= 1.0
                 elif impulse <= -1.0:
-                    turn_index = self.button_indices["left"]
+                    turn_index = self.turn_indices["left"]
                     if turn_index is not None:
                         action[turn_index] = 1
                         impulse += 1.0
                 with self.lock:
-                    # Keep the unspent remainder (fractions and fast swipes)
-                    # for the next ticks, together with input that arrived
-                    # while this tick was running.
+                    # Keep the unspent remainder for the next ticks, plus
+                    # input that arrived while this tick was running. Drop
+                    # the remainder when the queue was cleared (mouse lock
+                    # released, map switch, reset) or when no fresh mouse
+                    # input arrived for longer than the maximum age: that
+                    # remainder is old movement, and spending it is what
+                    # made the camera keep turning after the mouse stopped.
+                    cleared = self.turn_clear_seq != impulse_clear_seq
+                    stale = (
+                        self.turn_seq == impulse_seq
+                        and (time.monotonic() - self.turn_updated_at)
+                        > TURN_IMPULSE_MAX_AGE_SECONDS
+                    )
+                    remainder = 0.0 if (cleared or stale) else impulse
                     self.turn_impulse = max(
                         -TURN_IMPULSE_LIMIT,
-                        min(TURN_IMPULSE_LIMIT, self.turn_impulse + impulse),
+                        min(TURN_IMPULSE_LIMIT, self.turn_impulse + remainder),
                     )
                 self.game.make_action(action, 1)
 
@@ -541,6 +593,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if name in {f"examples_eps_{epsilon:.2f}.png" for epsilon in ALLOWED_EPSILONS}:
                 self.path = "/runs/fgsm/" + name
                 return super().do_GET()
+        if path.startswith("/assets/fgsm-mitigated/examples_eps_") and path.endswith(".png"):
+            name = Path(path).name
+            if name in {f"examples_eps_{epsilon:.2f}.png" for epsilon in ALLOWED_EPSILONS}:
+                self.path = "/runs/fgsm_mitigated/" + name
+                return super().do_GET()
         self.send_error(404, "Not found")
 
     def do_POST(self):
@@ -555,7 +612,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 self.demo.set_controls(body)
                 return self._send_json({"ok": True})
             if path == "/api/turn":
-                if not isinstance(body, dict) or set(body) != {"delta"}:
+                if not isinstance(body, dict) or set(body) - {"delta", "cancel"}:
+                    raise ValueError("Kirim delta mouse: {\"delta\": angka}")
+                if "cancel" in body and not isinstance(body["cancel"], bool):
+                    raise ValueError("Cancel harus true atau false")
+                if body.get("cancel") is True:
+                    self.demo.cancel_turn()
+                    return self._send_json({"ok": True})
+                if "delta" not in body:
                     raise ValueError("Kirim delta mouse: {\"delta\": angka}")
                 self.demo.add_turn(body["delta"])
                 return self._send_json({"ok": True})
