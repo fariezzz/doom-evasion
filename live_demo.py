@@ -1,12 +1,17 @@
 """Run a local interactive ViZDoom and live CNN robustness demo.
 
 Start from the project directory:
-    py live_demo.py --model runs/baseline/best_model.pt
+    py live_demo.py --model runs/baseline/best_model.pt --map defend_the_center
+
+The CNN was trained only on defend_the_center frames, so predictions are
+only meaningful on that map. Other maps are playable from the dashboard,
+but their predictions are shown with a warning.
 """
 
 import argparse
 import base64
 import json
+import math
 import os
 import threading
 import time
@@ -25,6 +30,55 @@ from train_baseline import SmallCNN
 
 ROOT = Path(__file__).resolve().parent
 ALLOWED_EPSILONS = (0.01, 0.03, 0.05)
+DEFAULT_MAP = "defend_the_center"
+
+# Map id -> scenario config, display label, and whether the CNN was trained
+# on this map. dead_simple is left out: its config path fails to load on
+# Windows. Every map here was verified to load with the buttons probed on
+# 2026-11-16; re-probe before adding a new one.
+MAPS = {
+    "defend_the_center": {
+        "config": "defend_the_center.cfg",
+        "label": "Defend the Center",
+        "trained": True,
+    },
+    "basic": {"config": "basic.cfg", "label": "Basic", "trained": False},
+    "deadly_corridor": {
+        "config": "deadly_corridor.cfg",
+        "label": "Deadly Corridor",
+        "trained": False,
+    },
+    "defend_the_line": {
+        "config": "defend_the_line.cfg",
+        "label": "Defend the Line",
+        "trained": False,
+    },
+    "health_gathering": {
+        "config": "health_gathering.cfg",
+        "label": "Health Gathering",
+        "trained": False,
+    },
+    "take_cover": {
+        "config": "take_cover.cfg",
+        "label": "Take Cover",
+        "trained": False,
+    },
+    "predict_position": {
+        "config": "predict_position.cfg",
+        "label": "Predict Position",
+        "trained": False,
+    },
+    "my_way_home": {
+        "config": "my_way_home.cfg",
+        "label": "My Way Home",
+        "trained": False,
+    },
+}
+
+# Mouse look: how many mouse pixels equal one game turn tick, and how many
+# unspent turn ticks may pile up from fast mouse movement.
+TURN_PIXELS_PER_TICK = 6.0
+TURN_IMPULSE_LIMIT = 45.0
 
 
 def to_gray_frame(buffer):
@@ -35,6 +89,16 @@ def to_gray_frame(buffer):
             return cv2.cvtColor(np.transpose(buffer, (1, 2, 0)), cv2.COLOR_RGB2GRAY)
         return buffer[0]
     return buffer
+
+
+def true_label_from_state(state):
+    """Ground-truth label from the game itself, same rule as training: 1 if
+    any visible label has the Monster category, else 0."""
+    labels = state.labels if state.labels is not None else []
+    for label in labels:
+        if getattr(label, "object_category", "") == "Monster":
+            return 1
+    return 0
 
 
 def encode_image(image):
@@ -53,7 +117,9 @@ def encode_gray_png(image):
 
 
 class LiveDemo:
-    def __init__(self, model_path, fps):
+    def __init__(self, model_path, fps, map_id):
+        if map_id not in MAPS:
+            raise ValueError("Unknown map: " + map_id)
         torch.set_num_threads(1)
         self.device = torch.device("cpu")
         self.model = SmallCNN().to(self.device)
@@ -65,6 +131,11 @@ class LiveDemo:
         self.model_lock = threading.Lock()
         self.lock = threading.Lock()
         self.target_fps = fps
+        self.map_id = map_id
+        self.maps_info = [
+            {"id": map_key, "label": info["label"], "trained": info["trained"]}
+            for map_key, info in MAPS.items()
+        ]
         self.controls = {
             "left": False,
             "right": False,
@@ -72,6 +143,8 @@ class LiveDemo:
             "backward": False,
             "attack": False,
         }
+        self.turn_impulse = 0.0
+        self.map_requested = None
         self.reset_requested = False
         self.stop_requested = False
         self.state = {
@@ -80,33 +153,25 @@ class LiveDemo:
             "frame": None,
             "prediction": None,
             "confidence": None,
+            "true_label": None,
             "fps": 0.0,
+            "map_id": map_id,
+            "map_label": MAPS[map_id]["label"],
+            "map_trained": MAPS[map_id]["trained"],
+            "available_controls": {name: False for name in self.controls},
         }
         self.baseline_capture = None
         self.capture_sequence = 0
         self.current_model_input = None
+        self.current_true_label = None
         self.baseline_metrics = self._read_json("runs/baseline/test_metrics.json")
         self.attack_metrics = self._read_json("runs/fgsm/attack_results.json")
 
-        self.game = vzd.DoomGame()
-        self.game.load_config(os.path.join(vzd.scenarios_path, "deadly_corridor.cfg"))
-        self.game.set_window_visible(False)
-        self.game.set_screen_format(vzd.ScreenFormat.GRAY8)
-        self.game.set_episode_timeout(2100)
-        self.game.init()
-        self.buttons = self.game.get_available_buttons()
-        button_names = [str(button) for button in self.buttons]
-        self.button_indices = {
-            "left": next((i for i, name in enumerate(button_names) if "TURN_LEFT" in name), None),
-            "right": next((i for i, name in enumerate(button_names) if "TURN_RIGHT" in name), None),
-            "forward": next((i for i, name in enumerate(button_names) if "MOVE_FORWARD" in name), None),
-            "backward": next((i for i, name in enumerate(button_names) if "MOVE_BACKWARD" in name), None),
-            "attack": next((i for i, name in enumerate(button_names) if "ATTACK" in name), None),
-        }
-        if any(self.button_indices[name] is None for name in ("left", "right", "forward", "backward")):
-            self.game.close()
-            raise RuntimeError("Deadly Corridor does not provide the required movement buttons")
-        self.game.new_episode()
+        # The game object is created lazily by the worker thread, so all
+        # ViZDoom calls happen on one thread.
+        self.game = None
+        self.buttons = []
+        self.button_indices = {name: None for name in self.controls}
         self.worker = threading.Thread(target=self._run_game, name="vizdoom-loop", daemon=True)
         self.worker.start()
 
@@ -117,6 +182,69 @@ class LiveDemo:
             return None
         with path.open(encoding="utf-8") as file:
             return json.load(file)
+
+    @staticmethod
+    def _build_game(map_id):
+        """Create and start a game for one map. Returns (game, buttons,
+        button_indices). Raises on failure without touching self, so a
+        failed map switch leaves the running game alone."""
+        game = vzd.DoomGame()
+        try:
+            game.load_config(os.path.join(vzd.scenarios_path, MAPS[map_id]["config"]))
+            game.set_window_visible(False)
+            game.set_labels_buffer_enabled(True)
+            game.set_screen_format(vzd.ScreenFormat.GRAY8)
+            game.set_episode_timeout(2100)
+            game.init()
+        except Exception:
+            try:
+                game.close()
+            except Exception:
+                pass
+            raise
+        buttons = game.get_available_buttons()
+        names = [str(button) for button in buttons]
+
+        def find(*keys):
+            for key in keys:
+                index = next((i for i, name in enumerate(names) if key in name), None)
+                if index is not None:
+                    return index
+            return None
+
+        # Every control is optional: maps offer different buttons.
+        # defend_the_center has no MOVE buttons, take_cover has no TURN or
+        # ATTACK buttons, so left/right fall back to strafing when a map
+        # has no turning buttons.
+        button_indices = {
+            "left": find("TURN_LEFT", "MOVE_LEFT"),
+            "right": find("TURN_RIGHT", "MOVE_RIGHT"),
+            "forward": find("MOVE_FORWARD"),
+            "backward": find("MOVE_BACKWARD"),
+            "attack": find("ATTACK"),
+        }
+        game.new_episode()
+        return game, buttons, button_indices
+
+    def _apply_game(self, game, buttons, button_indices, map_id):
+        old_game = self.game
+        self.game = game
+        self.buttons = buttons
+        self.button_indices = button_indices
+        self.map_id = map_id
+        self.turn_impulse = 0.0
+        if old_game is not None:
+            try:
+                old_game.close()
+            except Exception:
+                pass
+        with self.lock:
+            self.state["map_id"] = map_id
+            self.state["map_label"] = MAPS[map_id]["label"]
+            self.state["map_trained"] = MAPS[map_id]["trained"]
+            self.state["available_controls"] = {
+                name: index is not None for name, index in button_indices.items()
+            }
 
     def set_controls(self, controls):
         if not isinstance(controls, dict):
@@ -129,9 +257,32 @@ class LiveDemo:
         with self.lock:
             self.controls = {name: bool(controls.get(name, False)) for name in self.controls}
 
+    def add_turn(self, delta):
+        """Add mouse-look movement. Positive delta turns right, negative
+        turns left. The game loop spends it one turn tick at a time."""
+        if isinstance(delta, bool) or not isinstance(delta, (int, float)):
+            raise ValueError("Turn delta must be a number")
+        if not math.isfinite(delta) or abs(delta) > 2000:
+            raise ValueError("Turn delta is out of range")
+        with self.lock:
+            self.turn_impulse = max(
+                -TURN_IMPULSE_LIMIT,
+                min(TURN_IMPULSE_LIMIT, self.turn_impulse + delta / TURN_PIXELS_PER_TICK),
+            )
+
+    def request_map(self, map_id):
+        if not isinstance(map_id, str) or map_id not in MAPS:
+            raise ValueError("Unknown map: " + str(map_id))
+        with self.lock:
+            self.controls = {name: False for name in self.controls}
+            self.turn_impulse = 0.0
+            self.baseline_capture = None
+            self.map_requested = map_id
+
     def request_reset(self):
         with self.lock:
             self.controls = {name: False for name in self.controls}
+            self.turn_impulse = 0.0
             self.reset_requested = True
 
     def status(self):
@@ -139,6 +290,7 @@ class LiveDemo:
             current = dict(self.state)
         return {
             **current,
+            "maps": self.maps_info,
             "baseline_metrics": self.baseline_metrics,
             "attack_metrics": self.attack_metrics,
         }
@@ -157,6 +309,7 @@ class LiveDemo:
                 "frame": self.state["frame"],
                 "prediction": self.state["prediction"],
                 "confidence": self.state["confidence"],
+                "true_label": self.current_true_label,
                 "model_input": self.current_model_input.copy(),
                 "evaluation": None,
             }
@@ -174,6 +327,7 @@ class LiveDemo:
             "frame": capture["frame"],
             "prediction": capture["prediction"],
             "confidence": capture["confidence"],
+            "true_label": capture["true_label"],
             "evaluation": capture["evaluation"],
         }
 
@@ -238,7 +392,7 @@ class LiveDemo:
             probabilities = torch.softmax(self.model(tensor), dim=1)[0]
         prediction = int(probabilities.argmax().item())
         confidence = float(probabilities[prediction].item())
-        return gray, model_input, prediction, confidence
+        return gray, model_input, prediction, confidence, true_label_from_state(state)
 
     def _run_game(self):
         last_tick = None
@@ -255,7 +409,28 @@ class LiveDemo:
                         break
                     reset = self.reset_requested
                     self.reset_requested = False
+                    map_requested = self.map_requested
+                    self.map_requested = None
                     controls = dict(self.controls)
+                    impulse = self.turn_impulse
+                    self.turn_impulse = 0.0
+
+                if map_requested is not None and map_requested != self.map_id:
+                    try:
+                        game, buttons, indices = self._build_game(map_requested)
+                    except Exception as error:
+                        with self.lock:
+                            if self.game is None:
+                                raise
+                            self.state["error"] = "Gagal pindah map: " + str(error)
+                        continue
+                    self._apply_game(game, buttons, indices, map_requested)
+                    impulse = 0.0
+
+                if self.game is None:
+                    game, buttons, indices = self._build_game(self.map_id)
+                    self._apply_game(game, buttons, indices, self.map_id)
+
                 if reset or self.game.is_episode_finished():
                     self.game.new_episode()
 
@@ -263,24 +438,45 @@ class LiveDemo:
                 if state is None:
                     time.sleep(0.01)
                     continue
-                gray, model_input, prediction, confidence = self._current_input(state)
+                gray, model_input, prediction, confidence, true_label = self._current_input(state)
                 frame_jpeg = encode_image(gray)
                 action = [0] * len(self.buttons)
                 for name, pressed in controls.items():
                     button_index = self.button_indices[name]
                     if pressed and button_index is not None:
                         action[button_index] = 1
+                if impulse >= 1.0:
+                    turn_index = self.button_indices["right"]
+                    if turn_index is not None:
+                        action[turn_index] = 1
+                        impulse -= 1.0
+                elif impulse <= -1.0:
+                    turn_index = self.button_indices["left"]
+                    if turn_index is not None:
+                        action[turn_index] = 1
+                        impulse += 1.0
+                with self.lock:
+                    # Keep the unspent remainder (fractions and fast swipes)
+                    # for the next ticks, together with input that arrived
+                    # while this tick was running.
+                    self.turn_impulse = max(
+                        -TURN_IMPULSE_LIMIT,
+                        min(TURN_IMPULSE_LIMIT, self.turn_impulse + impulse),
+                    )
                 self.game.make_action(action, 1)
 
                 with self.lock:
                     self.state.update({
                         "ready": True,
+                        "error": None,
                         "frame": frame_jpeg,
                         "prediction": prediction,
                         "confidence": confidence,
+                        "true_label": true_label,
                         "fps": measured_fps,
                     })
                     self.current_model_input = model_input.copy()
+                    self.current_true_label = true_label
                 delay = (1.0 / self.target_fps) - (time.perf_counter() - tick_started)
                 if delay > 0:
                     time.sleep(delay)
@@ -289,7 +485,11 @@ class LiveDemo:
                 self.state["error"] = str(error)
                 self.state["ready"] = False
         finally:
-            self.game.close()
+            if self.game is not None:
+                try:
+                    self.game.close()
+                except Exception:
+                    pass
 
     def close(self):
         with self.lock:
@@ -354,6 +554,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if path == "/api/input":
                 self.demo.set_controls(body)
                 return self._send_json({"ok": True})
+            if path == "/api/turn":
+                if not isinstance(body, dict) or set(body) != {"delta"}:
+                    raise ValueError("Kirim delta mouse: {\"delta\": angka}")
+                self.demo.add_turn(body["delta"])
+                return self._send_json({"ok": True})
+            if path == "/api/map":
+                if not isinstance(body, dict) or set(body) != {"map"}:
+                    raise ValueError("Kirim id map: {\"map\": \"defend_the_center\"}")
+                self.demo.request_map(body["map"])
+                return self._send_json({"ok": True})
             if path == "/api/reset":
                 self.demo.request_reset()
                 return self._send_json({"ok": True})
@@ -371,6 +581,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="runs/baseline/best_model.pt")
+    parser.add_argument("--map", dest="map_id", default=DEFAULT_MAP, choices=sorted(MAPS))
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--fps", type=float, default=30.0)
     args = parser.parse_args()
@@ -382,13 +593,15 @@ def main():
     if not model_path.is_file():
         parser.error("Model checkpoint not found: " + str(model_path))
 
-    demo = LiveDemo(str(model_path), args.fps)
+    demo = LiveDemo(str(model_path), args.fps, args.map_id)
     DashboardHandler.demo = demo
     host = "127.0.0.1"
     server = ThreadingHTTPServer((host, args.port), DashboardHandler)
     server.daemon_threads = True
     print(f"Dashboard: http://{host}:{args.port}")
+    print(f"Map: {MAPS[args.map_id]['label']} (model dilatih pada Defend the Center)")
     print("Controls: A/Left = turn left, D/Right = turn right, W/Up = forward, S/Down = backward, Space = fire")
+    print("Mouse: click the game frame, move the mouse to aim, left click to fire.")
     print("Press Ctrl+C to stop the server and game.")
     try:
         server.serve_forever()

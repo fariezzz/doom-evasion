@@ -57,6 +57,14 @@
     .game-overlay strong { color: var(--green); font: 700 14px var(--mono); }
     .game-overlay strong.bad { color: var(--red); }
     .game-error { padding: 6px 10px; border-top: 1px solid var(--red); color: var(--red); font: 11px var(--mono); }
+    .crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; opacity: .8; }
+    .crosshair:before, .crosshair:after { content: ""; position: absolute; background: #ffd05a; }
+    .crosshair:before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-.5px); }
+    .crosshair:after { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-.5px); }
+    .mouse-hint { position: absolute; right: 8px; bottom: 8px; padding: 5px 8px; background: #080605eF; border: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); pointer-events: none; }
+    .mouse-hint.active { color: var(--green); border-color: var(--green); }
+    .map-warning { padding: 7px 10px; border-top: 1px solid var(--yellow); color: var(--yellow); font: 11px var(--mono); }
+    .map-select-wrap { display: flex; align-items: center; gap: 6px; color: var(--muted); font: 10px var(--mono); }
     .game-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 10px; color: var(--muted); font: 11px var(--mono); }
     .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-top: 1px solid var(--line); background: #0c0907; }
     .keyboard { display: grid; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 38px); gap: 4px; }
@@ -150,31 +158,38 @@
       <div>
         <div class="eyebrow">DOOM EVASION · LIVE GAME</div>
         <h1>DOOM EVASION</h1>
-        <p>Kontrol keyboard · live tidak direkam · capture baseline manual hanya disimpan sementara di memori.</p>
+        <p>Kontrol keyboard dan mouse · live tidak direkam · capture baseline manual hanya disimpan sementara di memori.</p>
       </div>
-      <div class="hero-tag">DEADLY CORRIDOR<br>30 FPS · LOCAL</div>
+      <div class="hero-tag"><span id="hero-map">DEFEND THE CENTER</span><br>30 FPS · LOCAL</div>
     </section>
 
     <div class="section-head">
       <h2>GAME / 01</h2>
-      <span class="section-note">WASD · SPACE · FULLSCREEN</span>
+      <span class="section-note">WASD · MOUSE · SPACE · FULLSCREEN</span>
     </div>
     <section class="grid">
       <article class="card game-card" id="game-card">
         <div class="card-head">
-          <span class="card-title">VIZDOOM · DEADLY CORRIDOR</span>
+          <span class="card-title">VIZDOOM · <span id="card-map">DEFEND THE CENTER</span></span>
           <div class="card-head-actions">
             <span class="live" id="game-live">MENUNGGU</span>
+            <label class="map-select-wrap" for="map-select">MAP
+              <select id="map-select"></select>
+            </label>
             <button type="button" id="fullscreen-game" aria-pressed="false">FULLSCREEN</button>
           </div>
         </div>
-        <div class="game-screen-wrap">
+        <div id="map-warning" class="map-warning" hidden></div>
+        <div class="game-screen-wrap" id="game-screen-wrap">
           <img class="screen" id="game-frame" alt="Tampilan permainan ViZDoom secara langsung">
+          <div class="crosshair" aria-hidden="true"></div>
           <div class="game-overlay">
             <strong id="live-prediction">MENUNGGU</strong>
+            <span id="live-true-label">LABEL GAME: —</span>
             <span id="live-confidence">—</span>
             <span id="fps">— FPS</span>
           </div>
+          <div class="mouse-hint" id="mouse-hint">KLIK FRAME UNTUK KONTROL MOUSE</div>
         </div>
         <div id="game-error" class="game-error" hidden></div>
         <div class="controls">
@@ -184,7 +199,7 @@
             <button type="button" class="key key-backward" data-control="backward" aria-label="Mundur, S atau panah bawah">S</button>
             <button type="button" class="key key-right" data-control="right" aria-label="Belok kanan, D atau panah kanan">D</button>
           </div>
-          <div class="control-hints"><b>W / S</b> GERAK<br><b>A / D</b> BELOK<br><b>C</b> CAPTURE BASELINE</div>
+          <div class="control-hints"><b>W / S</b> GERAK<br><b>A / D</b> BELOK<br><b>MOUSE</b> BIDIK + TEMBAK<br><b>C</b> CAPTURE BASELINE</div>
           <button type="button" class="key space-key" data-control="attack" aria-label="Tembak dengan spasi">SPACE</button>
           <button type="button" id="capture-baseline">CAPTURE BASELINE [C]</button>
           <button type="button" class="danger" id="reset-game">RESET</button>
@@ -201,7 +216,8 @@
         <img id="capture-image" alt="Frame yang ditangkap untuk analisis baseline">
         <div class="capture-info">
           <strong id="capture-prediction">—</strong>
-          <span id="capture-confidence">—</span>
+          <span id="capture-confidence">—</span><br>
+          <span id="capture-true-label">—</span>
           <p>Frame capture dan prediksi live. Evaluasi di bawah menguji gambar input model 84x84; capture berikutnya menggantikan yang ini dan tetap hanya di memori.</p>
         </div>
       </div>
@@ -262,7 +278,7 @@
 
     <div class="section-head"><h2>04 / Alur eksperimen</h2></div>
     <section class="steps">
-      <article class="card step"><i>01 — MAIN</i><b>Masukan game berubah</b><span>Keyboard mengendalikan permainan ViZDoom di komputer ini.</span></article>
+      <article class="card step"><i>01 — MAIN</i><b>Masukan game berubah</b><span>Keyboard dan mouse mengendalikan permainan ViZDoom di komputer ini.</span></article>
       <article class="card step"><i>02 — KLASIFIKASI</i><b>CNN menilai setiap frame</b><span>Model mengeluarkan satu label: ada musuh atau tidak.</span></article>
       <article class="card step"><i>03 — UJI ROBUSTNESS</i><b>FGSM mengubah satu frame</b><span>Bandingkan jawaban model sebelum dan setelah gangguan digital.</span></article>
     </section>
@@ -287,6 +303,16 @@
     const captureEvaluationError = document.getElementById("capture-evaluation-error");
     let captureAvailable = false;
     let captureEvaluation = null;
+    let availableControls = {forward: false, backward: false, left: false, right: false, attack: false};
+    let lastMapsSignature = "";
+    let currentMapId = null;
+    let pendingMapId = null;
+    const mapSelect = document.getElementById("map-select");
+    const mapWarning = document.getElementById("map-warning");
+    const heroMap = document.getElementById("hero-map");
+    const cardMap = document.getElementById("card-map");
+    const screenWrap = document.getElementById("game-screen-wrap");
+    const mouseHint = document.getElementById("mouse-hint");
 
     async function postJson(path, data) {
       const response = await fetch(path, {
@@ -330,6 +356,7 @@
       else if (key === "d" || key === "arrowright") control = "right";
       else if (key === " " || key === "spacebar") control = "attack";
       else return false;
+      if (availableControls[control] === false) return true;
       if (pressed[control] === isDown) return true;
       pressed[control] = isDown;
       syncControlButtons();
@@ -389,6 +416,115 @@
       button.addEventListener("pointercancel", release);
       button.addEventListener("lostpointercapture", release);
     });
+    function applyAvailableControls(next) {
+      if (!next) return;
+      let changed = false;
+      document.querySelectorAll("[data-control]").forEach(button => {
+        const control = button.dataset.control;
+        const shouldDisable = next[control] === false;
+        if (button.disabled !== shouldDisable) button.disabled = shouldDisable;
+        if (shouldDisable && pressed[control]) {
+          pressed[control] = false;
+          changed = true;
+        }
+      });
+      availableControls = {...next};
+      if (changed) {
+        syncControlButtons();
+        updateControls();
+      }
+    }
+
+    function syncMapOptions(maps, mapId) {
+      if (!maps) return;
+      const signature = JSON.stringify(maps);
+      if (signature !== lastMapsSignature) {
+        lastMapsSignature = signature;
+        mapSelect.replaceChildren(...maps.map(map => {
+          const option = document.createElement("option");
+          option.value = map.id;
+          option.textContent = map.label + (map.trained ? " · LATIH" : "");
+          return option;
+        }));
+      }
+      if (mapSelect.value !== mapId) mapSelect.value = mapId;
+    }
+
+    mapSelect.addEventListener("change", async () => {
+      const mapId = mapSelect.value;
+      pendingMapId = mapId;
+      mapSelect.disabled = true;
+      try {
+        await postJson("/api/map", {map: mapId});
+      } catch (error) {
+        showError(error.message);
+        pendingMapId = null;
+        mapSelect.value = currentMapId || mapId;
+        mapSelect.disabled = false;
+      }
+    });
+
+    let mouseDelta = 0;
+    let mouseSendBusy = false;
+    let mouseLocked = false;
+    let mouseAttack = false;
+
+    async function flushMouseDelta() {
+      if (mouseSendBusy || mouseDelta === 0) return;
+      const delta = mouseDelta;
+      mouseDelta = 0;
+      mouseSendBusy = true;
+      try {
+        await postJson("/api/turn", {delta});
+      } catch (error) {
+        // Mouse failure must not break keyboard play; the next status poll
+        // shows the server state.
+      }
+      mouseSendBusy = false;
+    }
+    window.setInterval(() => { if (mouseLocked) flushMouseDelta(); }, 50);
+
+    screenWrap.addEventListener("click", () => {
+      if (mouseLocked || !screenWrap.requestPointerLock) return;
+      const result = screenWrap.requestPointerLock();
+      if (result && result.catch) {
+        result.catch(() => showError("Kontrol mouse tidak dapat dikunci di browser ini."));
+      }
+    });
+    document.addEventListener("pointerlockchange", () => {
+      mouseLocked = document.pointerLockElement === screenWrap;
+      mouseHint.textContent = mouseLocked
+        ? "MOUSE AKTIF · ESC UNTUK LEPAS"
+        : "KLIK FRAME UNTUK KONTROL MOUSE";
+      mouseHint.classList.toggle("active", mouseLocked);
+      if (!mouseLocked) {
+        mouseDelta = 0;
+        if (mouseAttack) {
+          mouseAttack = false;
+          pressed.attack = false;
+          syncControlButtons();
+          updateControls();
+        }
+      }
+    });
+    document.addEventListener("mousemove", event => {
+      if (mouseLocked) mouseDelta += event.movementX || 0;
+    });
+    document.addEventListener("mousedown", event => {
+      if (!mouseLocked || event.button !== 0 || mouseAttack) return;
+      mouseAttack = true;
+      pressed.attack = true;
+      syncControlButtons();
+      updateControls();
+    });
+    document.addEventListener("mouseup", event => {
+      if (event.button !== 0 || !mouseAttack) return;
+      mouseAttack = false;
+      pressed.attack = false;
+      syncControlButtons();
+      updateControls();
+    });
+
     document.getElementById("reset-game").addEventListener("click", async () => {
       Object.keys(pressed).forEach(key => { pressed[key] = false; });
       syncControlButtons();
@@ -402,9 +538,15 @@
       document.getElementById("capture-prediction").textContent = className(capture.prediction);
       document.getElementById("capture-confidence").textContent =
         `Keyakinan ${(capture.confidence * 100).toFixed(1)}%`;
+      document.getElementById("capture-true-label").textContent =
+        (capture.true_label === null || capture.true_label === undefined)
+          ? "Label game: —"
+          : `Label game: ${className(capture.true_label)}`;
       captureAvailable = true;
       captureEvaluation = capture.evaluation || null;
-      captureLabel.value = captureEvaluation ? String(captureEvaluation.label) : "";
+      captureLabel.value = captureEvaluation
+        ? String(captureEvaluation.label)
+        : (capture.true_label === null || capture.true_label === undefined ? "" : String(capture.true_label));
       capturePanel.hidden = false;
       if (captureEvaluation) renderCaptureEvaluation(captureEvaluation);
       else captureEvaluationPanel.hidden = true;
@@ -533,13 +675,44 @@
           }
           const livePrediction = document.getElementById("live-prediction");
           livePrediction.textContent = className(data.prediction);
-          livePrediction.classList.remove("bad");
+          const mismatch = data.true_label !== null && data.true_label !== undefined && data.prediction !== data.true_label;
+          livePrediction.classList.toggle("bad", mismatch);
+          document.getElementById("live-true-label").textContent =
+            (data.true_label === null || data.true_label === undefined)
+              ? "LABEL GAME: —"
+              : `LABEL GAME: ${className(data.true_label)}`;
           document.getElementById("live-confidence").textContent = `${(data.confidence * 100).toFixed(1)}% yakin`;
           document.getElementById("fps").textContent = `${data.fps.toFixed(1)} FPS`;
           gameError.hidden = !data.error;
         }
+        syncMapOptions(data.maps, data.map_id);
+        if (currentMapId !== null && data.map_id !== currentMapId) {
+          captureAvailable = false;
+          captureEvaluation = null;
+          capturePanel.hidden = true;
+          captureEvaluationPanel.hidden = true;
+          Object.keys(pressed).forEach(key => { pressed[key] = false; });
+          syncControlButtons();
+        }
+        currentMapId = data.map_id;
+        if (pendingMapId !== null && data.map_id === pendingMapId) {
+          pendingMapId = null;
+          mapSelect.disabled = false;
+        }
+        heroMap.textContent = (data.map_label || "").toUpperCase();
+        cardMap.textContent = (data.map_label || "").toUpperCase();
+        mapWarning.hidden = data.map_trained !== false;
+        mapWarning.textContent = "Map ini bukan tempat model dilatih. Model hanya dilatih pada Defend the Center, jadi prediksi di sini tidak dapat diandalkan.";
+        applyAvailableControls(data.available_controls);
         if (data.error) showError(data.error);
-        if (data.baseline_metrics && data.attack_metrics) renderMetrics(data.baseline_metrics, data.attack_metrics);
+        if (!metricsRendered && !metricsFailed && data.baseline_metrics && data.attack_metrics) {
+          try {
+            renderMetrics(data.baseline_metrics, data.attack_metrics);
+          } catch (error) {
+            metricsFailed = true;
+            showError(`Hasil evaluasi tidak dapat ditampilkan: ${error.message}`);
+          }
+        }
       } catch (error) {
         document.getElementById("server-status").textContent = "SERVER OFFLINE";
         document.getElementById("server-status").classList.add("offline");
@@ -552,6 +725,7 @@
     }
 
     let metricsRendered = false;
+    let metricsFailed = false;
     function renderMetrics(baseline, attack) {
       if (metricsRendered) return;
       metricsRendered = true;
