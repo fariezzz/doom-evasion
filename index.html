@@ -400,7 +400,7 @@
       const note = document.getElementById("model-note");
       if (!available) {
         note.hidden = false;
-        note.textContent = "Model mitigasi tidak ditemukan: runs/mitigation/best_model.pt belum ada di laptop. Baseline tetap jalan. Untuk tes sementara, jalankan server dengan --mitigation-model ../arsip-latihan-doom-evasion-20261117/latihan_mitigasi/best_model.pt (itu model latihan, bukan model resmi).";
+        note.textContent = "Model mitigasi tidak ditemukan: runs/mitigation/best_model.pt belum ada di laptop. Baseline tetap jalan. Jalankan ulang training mitigasi atau periksa berkas itu.";
       } else if (mitigationError) {
         note.hidden = false;
         note.textContent = mitigationError;

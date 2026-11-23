@@ -143,10 +143,9 @@ class LiveDemo:
         self.model.load_state_dict(checkpoint["state_dict"])
         self.model.eval()
         # Model mitigasi bersifat opsional: berkas resmi
-        # runs/mitigation/best_model.pt saat ini tidak ada di laptop
-        # (hanya ada ../arsip-latihan-doom-evasion-20261117/latihan_mitigasi/best_model.pt dari latihan),
-        # jadi demo harus tetap jalan dengan baseline saja dan memberi
-        # tahu pengguna, bukan gagal total.
+        # runs/mitigation/best_model.pt dimuat kalau ada. Kalau berkas
+        # itu tidak ditemukan, demo tetap jalan dengan baseline saja
+        # dan memberi tahu pengguna, bukan gagal total.
         self.mitigation_model = None
         self.mitigation_available = False
         self.mitigation_error = None
@@ -795,8 +794,7 @@ def main():
         else:
             print("Peringatan: model mitigasi tidak ditemukan: " + str(mitigation_candidate))
             print("Mode Mitigasi dan Bandingkan dinonaktifkan sampai berkas itu ada.")
-            print("Untuk tes sementara, jalankan dengan --mitigation-model ../arsip-latihan-doom-evasion-20261117/latihan_mitigasi/best_model.pt")
-            print("dengan catatan itu model latihan, bukan model resmi mitigasi.")
+            print("Jalankan ulang training mitigasi atau periksa berkas runs/mitigation/best_model.pt.")
     demo = LiveDemo(str(model_path), args.fps, args.map_id, mitigation_path)
     DashboardHandler.demo = demo
     host = "127.0.0.1"
