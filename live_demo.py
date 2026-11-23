@@ -1,7 +1,13 @@
 """Run a local interactive ViZDoom and live CNN robustness demo.
 
 Start from the project directory:
-    py live_demo.py --model runs/baseline/best_model.pt --map defend_the_center
+    py live_demo.py --model runs/baseline/best_model.pt --mitigation-model runs/mitigation/best_model.pt --map defend_the_center
+
+Toggle Baseline / Mitigasi / Bandingkan di dashboard memuat kedua model
+pada frame yang sama. Mode Bandingkan menampilkan prediksi kedua model
+berdampingan; uji FGSM pada satu capture dijalankan untuk kedua model.
+Jika berkas model mitigasi tidak ditemukan, mode Mitigasi dan Bandingkan
+dinonaktifkan dan dashboard menampilkan peringatan, baseline tetap jalan.
 
 The CNN was trained only on defend_the_center frames, so predictions are
 only meaningful on that map. Other maps are playable from the dashboard,
@@ -123,17 +129,46 @@ def encode_gray_png(image):
 
 
 class LiveDemo:
-    def __init__(self, model_path, fps, map_id):
+    def __init__(self, model_path, fps, map_id, mitigation_model_path=None):
         if map_id not in MAPS:
             raise ValueError("Unknown map: " + map_id)
         torch.set_num_threads(1)
         self.device = torch.device("cpu")
+        self.model_path = model_path
+        self.mitigation_model_path = mitigation_model_path
         self.model = SmallCNN().to(self.device)
         checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
         if "state_dict" not in checkpoint:
             raise ValueError("Model checkpoint does not contain a state_dict: " + model_path)
         self.model.load_state_dict(checkpoint["state_dict"])
         self.model.eval()
+        # Model mitigasi bersifat opsional: berkas resmi
+        # runs/mitigation/best_model.pt saat ini tidak ada di laptop
+        # (hanya ada ../arsip-latihan-doom-evasion-20261117/latihan_mitigasi/best_model.pt dari latihan),
+        # jadi demo harus tetap jalan dengan baseline saja dan memberi
+        # tahu pengguna, bukan gagal total.
+        self.mitigation_model = None
+        self.mitigation_available = False
+        self.mitigation_error = None
+        if mitigation_model_path:
+            mitigation_path = Path(mitigation_model_path)
+            if mitigation_path.is_file():
+                try:
+                    mitigation_model = SmallCNN().to(self.device)
+                    mitigation_checkpoint = torch.load(
+                        str(mitigation_path), map_location=self.device, weights_only=False
+                    )
+                    if "state_dict" not in mitigation_checkpoint:
+                        raise ValueError("Model checkpoint does not contain a state_dict: " + str(mitigation_path))
+                    mitigation_model.load_state_dict(mitigation_checkpoint["state_dict"])
+                    mitigation_model.eval()
+                    self.mitigation_model = mitigation_model
+                    self.mitigation_available = True
+                except Exception as error:
+                    self.mitigation_error = str(error)
+            else:
+                self.mitigation_error = "Berkas model mitigasi tidak ditemukan: " + str(mitigation_path)
+        self.model_mode = "baseline"
         self.model_lock = threading.Lock()
         self.lock = threading.Lock()
         self.target_fps = fps
@@ -169,6 +204,15 @@ class LiveDemo:
             "map_trained": MAPS[map_id]["trained"],
             "available_controls": {name: False for name in self.controls},
             "can_turn": False,
+            "model_mode": "baseline",
+            "mitigation_available": self.mitigation_available,
+            "mitigation_error": self.mitigation_error,
+            "baseline_prediction": None,
+            "baseline_confidence": None,
+            "baseline_prob_monster": None,
+            "mitigation_prediction": None,
+            "mitigation_confidence": None,
+            "mitigation_prob_monster": None,
         }
         self.baseline_capture = None
         self.capture_sequence = 0
@@ -322,11 +366,27 @@ class LiveDemo:
             self.turn_clear_seq += 1
             self.reset_requested = True
 
+    def set_model_mode(self, mode):
+        if mode not in ("baseline", "mitigation", "compare"):
+            raise ValueError("Mode model harus baseline, mitigation, atau compare")
+        if mode in ("mitigation", "compare") and not self.mitigation_available:
+            raise ValueError(
+                self.mitigation_error
+                or "Model mitigasi tidak tersedia. Periksa berkas runs/mitigation/best_model.pt"
+            )
+        with self.lock:
+            self.model_mode = mode
+            self.state["model_mode"] = mode
+        return mode
+
     def status(self):
         with self.lock:
             current = dict(self.state)
         return {
             **current,
+            "model_mode": self.model_mode,
+            "mitigation_available": self.mitigation_available,
+            "mitigation_error": self.mitigation_error,
             "maps": self.maps_info,
             "baseline_metrics": self.baseline_metrics,
             "attack_metrics": self.attack_metrics,
@@ -351,6 +411,14 @@ class LiveDemo:
                 "true_label": self.current_true_label,
                 "model_input": self.current_model_input.copy(),
                 "evaluation": None,
+                "baseline_prediction": self.state.get("baseline_prediction"),
+                "baseline_confidence": self.state.get("baseline_confidence"),
+                "baseline_prob_monster": self.state.get("baseline_prob_monster"),
+                "mitigation_prediction": self.state.get("mitigation_prediction"),
+                "mitigation_confidence": self.state.get("mitigation_confidence"),
+                "mitigation_prob_monster": self.state.get("mitigation_prob_monster"),
+                "model_mode": self.state.get("model_mode"),
+                "mitigation_available": self.mitigation_available,
             }
             return self._public_capture(self.baseline_capture)
 
@@ -368,24 +436,23 @@ class LiveDemo:
             "confidence": capture["confidence"],
             "true_label": capture["true_label"],
             "evaluation": capture["evaluation"],
+            "baseline_prediction": capture.get("baseline_prediction"),
+            "baseline_confidence": capture.get("baseline_confidence"),
+            "baseline_prob_monster": capture.get("baseline_prob_monster"),
+            "mitigation_prediction": capture.get("mitigation_prediction"),
+            "mitigation_confidence": capture.get("mitigation_confidence"),
+            "mitigation_prob_monster": capture.get("mitigation_prob_monster"),
+            "model_mode": capture.get("model_mode"),
+            "mitigation_available": capture.get("mitigation_available"),
         }
 
-    def evaluate_baseline_capture(self, label):
-        if type(label) is not int or label not in (0, 1):
-            raise ValueError("Label capture harus 0 (tanpa musuh) atau 1 (ada musuh)")
-
-        with self.lock:
-            if self.baseline_capture is None:
-                raise RuntimeError("Ambil capture game terlebih dahulu")
-            capture_id = self.baseline_capture["id"]
-            model_input = self.baseline_capture["model_input"].copy()
-
+    def _evaluate_one_model(self, model, model_input, label):
         x = torch.from_numpy(model_input).unsqueeze(0).unsqueeze(0)
         target = torch.tensor([label], dtype=torch.long, device=self.device)
         with self.model_lock:
-            self.model.zero_grad(set_to_none=True)
+            model.zero_grad(set_to_none=True)
             x_for_grad = x.clone().detach().requires_grad_(True)
-            clean_logits = self.model(x_for_grad)
+            clean_logits = model(x_for_grad)
             F.cross_entropy(clean_logits, target).backward()
             gradient = x_for_grad.grad.detach()
             clean_probabilities = torch.softmax(clean_logits.detach(), dim=1)[0]
@@ -399,7 +466,7 @@ class LiveDemo:
             for epsilon in ALLOWED_EPSILONS:
                 changed = torch.clamp(x + epsilon * torch.sign(gradient), 0.0, 1.0)
                 with torch.inference_mode():
-                    probabilities = torch.softmax(self.model(changed), dim=1)[0]
+                    probabilities = torch.softmax(model(changed), dim=1)[0]
                 prediction = int(probabilities.argmax().item())
                 samples.append({
                     "epsilon": epsilon,
@@ -407,14 +474,39 @@ class LiveDemo:
                     "prediction": prediction,
                     "confidence": float(probabilities[prediction].item()),
                 })
-            self.model.zero_grad(set_to_none=True)
+            model.zero_grad(set_to_none=True)
+        return samples
+
+    def evaluate_baseline_capture(self, label):
+        if type(label) is not int or label not in (0, 1):
+            raise ValueError("Label capture harus 0 (tanpa musuh) atau 1 (ada musuh)")
+
+        with self.lock:
+            if self.baseline_capture is None:
+                raise RuntimeError("Ambil capture game terlebih dahulu")
+            capture_id = self.baseline_capture["id"]
+            model_input = self.baseline_capture["model_input"].copy()
+
+        baseline_raw = self._evaluate_one_model(self.model, model_input, label)
+        baseline_samples = [
+            {**sample, "correct": sample["prediction"] == label}
+            for sample in baseline_raw
+        ]
+        mitigation_samples = None
+        if self.mitigation_available and self.mitigation_model is not None:
+            mitigation_raw = self._evaluate_one_model(self.mitigation_model, model_input, label)
+            mitigation_samples = [
+                {**sample, "correct": sample["prediction"] == label}
+                for sample in mitigation_raw
+            ]
 
         result = {
             "label": label,
-            "samples": [
-                {**sample, "correct": sample["prediction"] == label}
-                for sample in samples
-            ],
+            "samples": baseline_samples,
+            "baseline_samples": baseline_samples,
+            "mitigation_samples": mitigation_samples,
+            "mitigation_available": self.mitigation_available,
+            "mitigation_error": self.mitigation_error,
         }
         with self.lock:
             if self.baseline_capture is None or self.baseline_capture["id"] != capture_id:
@@ -422,16 +514,36 @@ class LiveDemo:
             self.baseline_capture["evaluation"] = result
         return result
 
+    def _predict_tensor(self, model, tensor):
+        with torch.inference_mode():
+            probabilities = torch.softmax(model(tensor), dim=1)[0]
+        prediction = int(probabilities.argmax().item())
+        return {
+            "prediction": prediction,
+            "confidence": float(probabilities[prediction].item()),
+            "prob_monster": float(probabilities[1].item()),
+            "probabilities": [float(probabilities[0].item()), float(probabilities[1].item())],
+        }
+
     def _current_input(self, state):
         gray = to_gray_frame(state.screen_buffer).copy()
         resized = cv2.resize(gray, (84, 84), interpolation=cv2.INTER_AREA)
         model_input = resized.astype(np.float32) / 255.0
         tensor = torch.from_numpy(model_input).unsqueeze(0).unsqueeze(0)
-        with self.model_lock, torch.inference_mode():
-            probabilities = torch.softmax(self.model(tensor), dim=1)[0]
-        prediction = int(probabilities.argmax().item())
-        confidence = float(probabilities[prediction].item())
-        return gray, model_input, prediction, confidence, true_label_from_state(state)
+        with self.model_lock:
+            baseline_info = self._predict_tensor(self.model, tensor)
+            mitigation_info = None
+            if self.mitigation_available and self.mitigation_model is not None:
+                mitigation_info = self._predict_tensor(self.mitigation_model, tensor)
+        with self.lock:
+            mode = self.model_mode
+        if mode == "mitigation" and mitigation_info is not None:
+            active = mitigation_info
+        else:
+            active = baseline_info
+        prediction = active["prediction"]
+        confidence = active["confidence"]
+        return gray, model_input, prediction, confidence, true_label_from_state(state), baseline_info, mitigation_info
 
     def _run_game(self):
         last_tick = None
@@ -479,7 +591,7 @@ class LiveDemo:
                 if state is None:
                     time.sleep(0.01)
                     continue
-                gray, model_input, prediction, confidence, true_label = self._current_input(state)
+                gray, model_input, prediction, confidence, true_label, baseline_info, mitigation_info = self._current_input(state)
                 frame_jpeg = encode_image(gray)
                 action = [0] * len(self.buttons)
                 for name, pressed in controls.items():
@@ -526,6 +638,15 @@ class LiveDemo:
                         "confidence": confidence,
                         "true_label": true_label,
                         "fps": measured_fps,
+                        "model_mode": self.model_mode,
+                        "mitigation_available": self.mitigation_available,
+                        "mitigation_error": self.mitigation_error,
+                        "baseline_prediction": baseline_info["prediction"],
+                        "baseline_confidence": baseline_info["confidence"],
+                        "baseline_prob_monster": baseline_info["prob_monster"],
+                        "mitigation_prediction": mitigation_info["prediction"] if mitigation_info else None,
+                        "mitigation_confidence": mitigation_info["confidence"] if mitigation_info else None,
+                        "mitigation_prob_monster": mitigation_info["prob_monster"] if mitigation_info else None,
                     })
                     self.current_model_input = model_input.copy()
                     self.current_true_label = true_label
@@ -623,6 +744,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     raise ValueError("Kirim delta mouse: {\"delta\": angka}")
                 self.demo.add_turn(body["delta"])
                 return self._send_json({"ok": True})
+            if path == "/api/model":
+                if not isinstance(body, dict) or set(body) != {"mode"}:
+                    raise ValueError('Kirim mode model: {"mode": "baseline" | "mitigation" | "compare"}')
+                mode = self.demo.set_model_mode(body["mode"])
+                return self._send_json({"ok": True, "mode": mode})
             if path == "/api/map":
                 if not isinstance(body, dict) or set(body) != {"map"}:
                     raise ValueError("Kirim id map: {\"map\": \"defend_the_center\"}")
@@ -645,6 +771,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="runs/baseline/best_model.pt")
+    parser.add_argument("--mitigation-model", default="runs/mitigation/best_model.pt")
+    parser.add_argument("--no-mitigation-model", action="store_true", help="Jangan muat model mitigasi")
     parser.add_argument("--map", dest="map_id", default=DEFAULT_MAP, choices=sorted(MAPS))
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--fps", type=float, default=30.0)
@@ -657,13 +785,29 @@ def main():
     if not model_path.is_file():
         parser.error("Model checkpoint not found: " + str(model_path))
 
-    demo = LiveDemo(str(model_path), args.fps, args.map_id)
+    mitigation_path = None
+    if not args.no_mitigation_model:
+        mitigation_candidate = Path(args.mitigation_model)
+        if not mitigation_candidate.is_absolute():
+            mitigation_candidate = ROOT / mitigation_candidate
+        if mitigation_candidate.is_file():
+            mitigation_path = str(mitigation_candidate)
+        else:
+            print("Peringatan: model mitigasi tidak ditemukan: " + str(mitigation_candidate))
+            print("Mode Mitigasi dan Bandingkan dinonaktifkan sampai berkas itu ada.")
+            print("Untuk tes sementara, jalankan dengan --mitigation-model ../arsip-latihan-doom-evasion-20261117/latihan_mitigasi/best_model.pt")
+            print("dengan catatan itu model latihan, bukan model resmi mitigasi.")
+    demo = LiveDemo(str(model_path), args.fps, args.map_id, mitigation_path)
     DashboardHandler.demo = demo
     host = "127.0.0.1"
     server = ThreadingHTTPServer((host, args.port), DashboardHandler)
     server.daemon_threads = True
     print(f"Dashboard: http://{host}:{args.port}")
     print(f"Map: {MAPS[args.map_id]['label']} (model dilatih pada Defend the Center)")
+    if demo.mitigation_available:
+        print("Model mitigasi: tersedia (" + str(demo.mitigation_model_path) + ")")
+    else:
+        print("Model mitigasi: tidak tersedia. " + (demo.mitigation_error or ""))
     print("Controls: A/Left = turn left, D/Right = turn right, W/Up = forward, S/Down = backward, Space = fire")
     print("Mouse: click the game frame, move the mouse to aim, left click to fire.")
     print("Press Ctrl+C to stop the server and game.")

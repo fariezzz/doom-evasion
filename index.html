@@ -64,6 +64,16 @@
     .mouse-hint { position: absolute; right: 8px; bottom: 8px; padding: 5px 8px; background: #080605eF; border: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); pointer-events: none; }
     .mouse-hint.active { color: var(--green); border-color: var(--green); }
     .map-warning { padding: 7px 10px; border-top: 1px solid var(--yellow); color: var(--yellow); font: 11px var(--mono); }
+    .model-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 10px; border-top: 1px solid var(--line); background: #0c0907; }
+    .model-toggle span { color: var(--muted); font-size: 10px; }
+    .model-toggle button.active { background: #6b2b18; border-color: var(--yellow); color: #fff1c8; }
+    .model-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); }
+    .model-compare div { border: 1px solid var(--line); padding: 8px; font-size: 11px; color: var(--muted); }
+    .model-compare strong { display: block; color: var(--green); font-size: 14px; }
+    .model-compare div.disagree strong { color: var(--red); }
+    .model-note { padding: 7px 10px; border-top: 1px solid var(--yellow); color: var(--yellow); font: 11px var(--mono); }
+    .capture-evaluation-group { margin-bottom: 14px; }
+    .capture-evaluation-group h4 { margin: 0 0 8px; color: var(--yellow); font-size: 11px; }
     .map-select-wrap { display: flex; align-items: center; gap: 6px; color: var(--muted); font: 10px var(--mono); }
     .game-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 10px; color: var(--muted); font: 11px var(--mono); }
     .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-top: 1px solid var(--line); background: #0c0907; }
@@ -184,6 +194,18 @@
           </div>
         </div>
         <div id="map-warning" class="map-warning" hidden></div>
+        <div class="model-toggle" role="group" aria-label="Pilih model">
+          <span>MODEL:</span>
+          <button type="button" id="model-baseline" data-model-mode="baseline">BASELINE</button>
+          <button type="button" id="model-mitigation" data-model-mode="mitigation">MITIGASI</button>
+          <button type="button" id="model-compare" data-model-mode="compare">BANDINGKAN</button>
+          <span id="model-status">Memuat status model...</span>
+        </div>
+        <div id="model-note" class="model-note" hidden></div>
+        <div id="model-compare" class="model-compare" hidden>
+          <div id="compare-baseline"><strong>BASELINE: -</strong><span>-</span></div>
+          <div id="compare-mitigation"><strong>MITIGASI: -</strong><span>-</span></div>
+        </div>
         <div class="game-screen-wrap" id="game-screen-wrap">
           <img class="screen" id="game-frame" alt="Tampilan permainan ViZDoom secara langsung">
           <div class="crosshair" aria-hidden="true"></div>
@@ -191,6 +213,7 @@
             <strong id="live-prediction">MENUNGGU</strong>
             <span id="live-true-label">LABEL GAME: —</span>
             <span id="live-confidence">—</span>
+            <span id="live-prob-monster">—</span>
             <span id="fps">— FPS</span>
           </div>
           <div class="mouse-hint" id="mouse-hint">KLIK FRAME UNTUK KONTROL MOUSE</div>
@@ -221,7 +244,8 @@
         <div class="capture-info">
           <strong id="capture-prediction">—</strong>
           <span id="capture-confidence">—</span><br>
-          <span id="capture-true-label">—</span>
+          <span id="capture-true-label">—</span><br>
+          <span id="capture-compare">—</span>
           <p>Frame capture dan prediksi live. Evaluasi di bawah menguji gambar input model 84x84; capture berikutnya menggantikan yang ini dan tetap hanya di memori.</p>
         </div>
       </div>
@@ -233,10 +257,10 @@
             <option value="0">Tidak ada musuh</option>
           </select>
         </label>
-        <button type="button" id="evaluate-capture" disabled>UJI FGSM BASELINE</button>
+        <button type="button" id="evaluate-capture" disabled>UJI FGSM KEDUA MODEL</button>
         <button type="button" id="download-capture" disabled>UNDUH FRAME CAPTURE</button>
         <button type="button" id="download-evaluation" disabled>UNDUH HASIL EVALUASI (JSON)</button>
-        <p>Set label sesuai isi frame, lalu bandingkan gambar asli dengan gangguan FGSM eps 0,01 / 0,03 / 0,05. Ini evaluasi satu capture, bukan akurasi dataset.</p>
+        <p>Set label sesuai isi frame, lalu bandingkan gambar asli dengan gangguan FGSM eps 0,01 / 0,03 / 0,05 untuk baseline dan mitigasi pada capture yang sama. Ini evaluasi satu capture, bukan akurasi dataset.</p>
       </div>
       <p id="capture-evaluation-error" class="capture-evaluation-error" role="alert" hidden></p>
       <div id="capture-evaluation" class="capture-evaluation" aria-live="polite" hidden>
@@ -356,6 +380,43 @@
     let pendingMapId = null;
     const mapSelect = document.getElementById("map-select");
     const mapWarning = document.getElementById("map-warning");
+    let currentModelMode = "baseline";
+    let mitigationAvailable = false;
+    let mitigationError = null;
+    function syncModelToggle(data) {
+      if (!data) return;
+      if (typeof data.model_mode === "string") currentModelMode = data.model_mode;
+      if (typeof data.mitigation_available === "boolean") mitigationAvailable = data.mitigation_available;
+      if (data.mitigation_error) mitigationError = data.mitigation_error;
+      const available = mitigationAvailable;
+      document.getElementById("model-baseline").classList.toggle("active", currentModelMode === "baseline");
+      document.getElementById("model-mitigation").classList.toggle("active", currentModelMode === "mitigation");
+      document.getElementById("model-compare").classList.toggle("active", currentModelMode === "compare");
+      document.getElementById("model-mitigation").disabled = !available;
+      document.getElementById("model-compare").disabled = !available;
+      document.getElementById("model-status").textContent = available
+        ? ("Mode: " + currentModelMode.toUpperCase() + " · Mitigasi tersedia")
+        : "Mode: BASELINE · Mitigasi tidak tersedia";
+      const note = document.getElementById("model-note");
+      if (!available) {
+        note.hidden = false;
+        note.textContent = "Model mitigasi tidak ditemukan: runs/mitigation/best_model.pt belum ada di laptop. Baseline tetap jalan. Untuk tes sementara, jalankan server dengan --mitigation-model ../arsip-latihan-doom-evasion-20261117/latihan_mitigasi/best_model.pt (itu model latihan, bukan model resmi).";
+      } else if (mitigationError) {
+        note.hidden = false;
+        note.textContent = mitigationError;
+      } else {
+        note.hidden = true;
+      }
+      const comparePanel = document.getElementById("model-compare");
+      comparePanel.hidden = !(currentModelMode === "compare" && available);
+    }
+    async function setModelMode(mode) {
+      try { await postJson("/api/model", {mode}); }
+      catch (error) { showError(error.message); }
+    }
+    document.querySelectorAll("[data-model-mode]").forEach(button => {
+      button.addEventListener("click", () => setModelMode(button.dataset.modelMode));
+    });
     const heroMap = document.getElementById("hero-map");
     const cardMap = document.getElementById("card-map");
     const screenWrap = document.getElementById("game-screen-wrap");
@@ -633,6 +694,16 @@
         (capture.true_label === null || capture.true_label === undefined)
           ? "Label game: —"
           : `Label game: ${className(capture.true_label)}`;
+      const captureCompare = document.getElementById("capture-compare");
+      if (capture.baseline_prediction !== null && capture.baseline_prediction !== undefined) {
+        const baseText = `Baseline: ${className(capture.baseline_prediction)} ${(capture.baseline_confidence * 100).toFixed(1)}% (P musuh ${(capture.baseline_prob_monster * 100).toFixed(1)}%)`;
+        const mitText = (capture.mitigation_prediction === null || capture.mitigation_prediction === undefined)
+          ? "Mitigasi: tidak tersedia"
+          : `Mitigasi: ${className(capture.mitigation_prediction)} ${(capture.mitigation_confidence * 100).toFixed(1)}% (P musuh ${(capture.mitigation_prob_monster * 100).toFixed(1)}%)`;
+        captureCompare.textContent = baseText + " · " + mitText;
+      } else {
+        captureCompare.textContent = "—";
+      }
       captureAvailable = true;
       lastCapture = capture;
       captureEvaluation = capture.evaluation || null;
@@ -650,29 +721,28 @@
       evaluateCaptureButton.disabled = !captureAvailable || captureLabel.value === "";
     }
 
-    function renderCaptureEvaluation(evaluation) {
-      const cleanSample = evaluation.samples[0];
-      const cleanStatus = evaluation.label === 1
-        ? (cleanSample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
-        : (cleanSample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
-      document.getElementById("capture-evaluation-summary").textContent =
-        `Label sebenarnya: ${className(evaluation.label)} · Frame asli: ${cleanStatus}`;
-      const grid = document.getElementById("capture-evaluation-grid");
-      grid.replaceChildren();
-      evaluation.samples.forEach(sample => {
+    function renderEvaluationGroup(title, samples, label) {
+      const group = document.createElement("div");
+      group.className = "capture-evaluation-group";
+      const heading = document.createElement("h4");
+      heading.textContent = title;
+      group.appendChild(heading);
+      const grid = document.createElement("div");
+      grid.className = "capture-evaluation-grid";
+      samples.forEach(sample => {
         const matchesLabel = sample.correct;
-        const status = evaluation.label === 1
+        const status = label === 1
           ? (sample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
           : (sample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
         const card = document.createElement("article");
         card.className = "capture-sample";
-        const heading = document.createElement("h3");
-        heading.textContent = sample.epsilon === 0
+        const heading2 = document.createElement("h3");
+        heading2.textContent = sample.epsilon === 0
           ? "ASLI · INPUT MODEL 84x84"
           : `FGSM · EPS ${sample.epsilon.toFixed(2)}`;
         const image = document.createElement("img");
         image.src = `data:image/png;base64,${sample.image}`;
-        image.alt = `Input model ${heading.textContent}`;
+        image.alt = `Input model ${heading2.textContent}`;
         const prediction = document.createElement("p");
         prediction.textContent =
           `Prediksi: ${className(sample.prediction)} · ${(sample.confidence * 100).toFixed(1)}%`;
@@ -686,9 +756,41 @@
           ? "input-model-asli.png"
           : `input-model-fgsm-eps-${sample.epsilon.toFixed(2)}.png`;
         download.textContent = "UNDUH GAMBAR";
-        card.append(heading, image, prediction, result, download);
+        card.append(heading2, image, prediction, result, download);
         grid.append(card);
       });
+      group.appendChild(grid);
+      return group;
+    }
+
+    function renderCaptureEvaluation(evaluation) {
+      const baselineSamples = evaluation.baseline_samples || evaluation.samples;
+      const cleanSample = baselineSamples[0];
+      const cleanStatus = evaluation.label === 1
+        ? (cleanSample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
+        : (cleanSample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
+      let summary = `Label sebenarnya: ${className(evaluation.label)} · Baseline frame asli: ${cleanStatus}`;
+      if (evaluation.mitigation_samples && evaluation.mitigation_samples[0]) {
+        const mitClean = evaluation.mitigation_samples[0];
+        const mitStatus = evaluation.label === 1
+          ? (mitClean.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
+          : (mitClean.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
+        summary += ` · Mitigasi frame asli: ${mitStatus}`;
+      } else {
+        summary += " · Mitigasi: tidak tersedia pada capture ini";
+      }
+      document.getElementById("capture-evaluation-summary").textContent = summary;
+      const container = document.getElementById("capture-evaluation-grid");
+      container.replaceChildren();
+      container.appendChild(renderEvaluationGroup("BASELINE", baselineSamples, evaluation.label));
+      if (evaluation.mitigation_samples) {
+        container.appendChild(renderEvaluationGroup("MITIGASI", evaluation.mitigation_samples, evaluation.label));
+      } else {
+        const note = document.createElement("p");
+        note.className = "capture-evaluation-summary";
+        note.textContent = "Mitigasi tidak dievaluasi: berkas runs/mitigation/best_model.pt tidak ditemukan saat server dinyalakan.";
+        container.appendChild(note);
+      }
       captureEvaluationPanel.hidden = false;
     }
 
@@ -746,6 +848,12 @@
           prediction: lastCapture.prediction,
           confidence: lastCapture.confidence,
           true_label: lastCapture.true_label,
+          baseline_prediction: lastCapture.baseline_prediction,
+          baseline_confidence: lastCapture.baseline_confidence,
+          baseline_prob_monster: lastCapture.baseline_prob_monster,
+          mitigation_prediction: lastCapture.mitigation_prediction,
+          mitigation_confidence: lastCapture.mitigation_confidence,
+          mitigation_prob_monster: lastCapture.mitigation_prob_monster,
         },
         evaluation: captureEvaluation,
         generated_at: new Date().toISOString(),
@@ -807,6 +915,24 @@
               ? "LABEL GAME: —"
               : `LABEL GAME: ${className(data.true_label)}`;
           document.getElementById("live-confidence").textContent = `${(data.confidence * 100).toFixed(1)}% yakin`;
+          syncModelToggle(data);
+          const activeProb = (data.model_mode === "mitigation" && data.mitigation_prob_monster !== null && data.mitigation_prob_monster !== undefined)
+            ? data.mitigation_prob_monster : data.baseline_prob_monster;
+          document.getElementById("live-prob-monster").textContent =
+            (activeProb === null || activeProb === undefined) ? "—"
+            : `P musuh: ${(activeProb * 100).toFixed(1)}% · Baseline ${(data.baseline_prob_monster * 100).toFixed(1)}%` +
+              ((data.mitigation_prob_monster === null || data.mitigation_prob_monster === undefined) ? " · Mitigasi: -" : ` · Mitigasi ${(data.mitigation_prob_monster * 100).toFixed(1)}%`);
+          if (data.model_mode === "compare" && data.mitigation_available) {
+            const baseEl = document.getElementById("compare-baseline");
+            const mitEl = document.getElementById("compare-mitigation");
+            baseEl.querySelector("strong").textContent = `BASELINE: ${className(data.baseline_prediction)}`;
+            baseEl.querySelector("span").textContent = `${(data.baseline_confidence * 100).toFixed(1)}% yakin · P musuh ${(data.baseline_prob_monster * 100).toFixed(1)}%`;
+            mitEl.querySelector("strong").textContent = `MITIGASI: ${className(data.mitigation_prediction)}`;
+            mitEl.querySelector("span").textContent = `${(data.mitigation_confidence * 100).toFixed(1)}% yakin · P musuh ${(data.mitigation_prob_monster * 100).toFixed(1)}%`;
+            const disagree = data.baseline_prediction !== data.mitigation_prediction;
+            baseEl.classList.toggle("disagree", disagree);
+            mitEl.classList.toggle("disagree", disagree);
+          }
           document.getElementById("fps").textContent = `${data.fps.toFixed(1)} FPS`;
           gameError.hidden = !data.error;
         }
@@ -907,7 +1033,7 @@
         const row = document.createElement("tr");
         const cell = document.createElement("td");
         cell.colSpan = 6;
-        cell.textContent = "Hasil mitigasi belum tersedia di server. Jalankan scripts/train_mitigation.py lalu scripts/attack_fgsm.py ke runs/fgsm_mitigated, lalu restart demo.";
+        cell.textContent = "Hasil mitigasi belum tersedia di server. Jalankan train_mitigation.py lalu attack_fgsm.py ke runs/fgsm_mitigated, lalu restart demo.";
         row.appendChild(cell);
         rows.appendChild(row);
         return;
