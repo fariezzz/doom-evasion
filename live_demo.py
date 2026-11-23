@@ -25,7 +25,7 @@ import torch
 import torch.nn.functional as F
 import vizdoom as vzd
 
-from train_baseline import SmallCNN
+from scripts.train_baseline import SmallCNN
 
 
 ROOT = Path(__file__).resolve().parent

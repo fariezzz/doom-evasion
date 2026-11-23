@@ -12,7 +12,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from train_baseline import FrameDataset, SmallCNN
+try:
+    from scripts.train_baseline import FrameDataset, SmallCNN
+except ImportError:
+    from train_baseline import FrameDataset, SmallCNN
 
 
 def save_examples(examples, eps, out_path):

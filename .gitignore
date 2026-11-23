@@ -21,18 +21,9 @@ runs/**/*.pt
 # Gameplay frame captures are regenerable and should not be pushed.
 runs/**/frame_*.png
 
-# Smoke test outputs: throwaway verification runs, not results.
-runs/smoke/
-
 # FGSM attack outputs: generated results, shared via handoff zip, not git.
-# The attack script itself (attack_fgsm.py) IS tracked.
+# The attack script itself (scripts/attack_fgsm.py) IS tracked.
 runs/fgsm/
-runs/fgsm_smoke/
-
-# MNIST practice data and outputs: practice material, not project results.
-# The practice script itself (mnist_latihan.py) is NOT ignored.
-data_mnist/
-runs/mnist_latihan*/
 
 # Editor
 .vscode/

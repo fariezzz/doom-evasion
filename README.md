@@ -20,21 +20,19 @@ Mitigasinya adalah adversarial training dari nol dengan epsilon latih 0,03. ASR 
 
 | Berkas / folder | Isi |
 | --- | --- |
-| smoke_test.py | Tes instalasi dan aturan label ViZDoom. |
-| collect_data.py, collect_data_center.py, collect_data_center_v2.py | Skrip pilot (skenario basic dan defend_the_center awal). Tidak dipakai training final. |
-| collect_data_final.py | Kumpul data final: 30 episode, policy shoot. |
-| analyze_duplicates.py | Analisis frame duplikat untuk protokol skip dan stride. |
-| build_dataset.py | Buang duplikat, lalu split train, validation, dan test per episode. |
-| train_baseline.py | Training CNN baseline. |
-| attack_fgsm.py | Evaluasi serangan FGSM pada 3 epsilon. |
-| train_mitigation.py | Adversarial training dari nol. |
-| mnist_latihan.py | Latihan CNN dan FGSM pada dataset MNIST, untuk belajar. Bukan hasil resmi. |
+| live_demo.py, index.html | Server demo live dan dashboard web lokal. |
+| scripts/smoke_test.py | Tes instalasi dan aturan label ViZDoom. |
+| scripts/collect_data_final.py | Kumpul data final: 30 episode, policy shoot. |
+| scripts/analyze_duplicates.py | Analisis frame duplikat untuk protokol skip dan stride. |
+| scripts/build_dataset.py | Buang duplikat, lalu split train, validation, dan test per episode. |
+| scripts/train_baseline.py | Training CNN baseline. |
+| scripts/attack_fgsm.py | Evaluasi serangan FGSM pada 3 epsilon. |
+| scripts/train_mitigation.py | Adversarial training dari nol. |
+| scripts/demo_capture.py | Rekam gameplay ViZDoom dengan prediksi CNN. |
 | data_final/ | Frame dan split yang dipakai semua training dan serangan. |
-| data_raw/, data_center/, data_center_v2_turn/, data_center_v2_shoot/ | Hanya manifest.csv. PNG pilot dihapus saat perapian 15 November 2026. |
-| data_mnist/ | Cache dataset MNIST untuk latihan. |
-| runs/baseline/, runs/mitigation/ | Hasil training. |
-| runs/fgsm/, runs/fgsm_mitigated/ | Hasil serangan. |
-| runs/mnist_latihan/ | Hasil latihan MNIST. |
+| runs/baseline/, runs/mitigation/ | Hasil training resmi. |
+| runs/fgsm/, runs/fgsm_mitigated/ | Hasil serangan resmi. |
+| runs/demo/ | Rekaman video demo gameplay. |
 | requirements.txt | Versi software lab yang terpin. |
 
 ## Cara menjalankan
@@ -48,23 +46,18 @@ python -m pip install -r requirements.txt
 Semua perintah di bawah diketik dari folder proyek, dengan virtual environment aktif, urut dari atas:
 
 ```powershell
-python .\collect_data_final.py --episodes 30 --max-steps 600 --seed-start 400 --out data_final --policy shoot --skip-steps 25 --stride 2
-python .\build_dataset.py --data data_final --split-seed 12345
-python .\train_baseline.py
-python .\attack_fgsm.py
-python .\train_mitigation.py
-python .\attack_fgsm.py --model runs/mitigation/best_model.pt --out runs/fgsm_mitigated
-```
-
-Latihan MNIST (tidak memengaruhi hasil resmi):
-
-```powershell
-python .\mnist_latihan.py --data data_mnist --epochs 3 --out runs/mnist_latihan
+python .\scripts\collect_data_final.py --episodes 30 --max-steps 600 --seed-start 400 --out data_final --policy shoot --skip-steps 25 --stride 2
+python .\scripts\build_dataset.py --data data_final --split-seed 12345
+python .\scripts\train_baseline.py
+python .\scripts\attack_fgsm.py
+python .\scripts\train_mitigation.py
+python .\scripts\attack_fgsm.py --model runs/mitigation/best_model.pt --out runs/fgsm_mitigated
+python .\live_demo.py --model runs/baseline/best_model.pt --map defend_the_center
 ```
 
 ## Catatan
 
 - data_final dapat dibuat ulang secara deterministik dengan dua perintah pertama, seed 12345.
-- Berkas model .pt serta folder runs/fgsm dan runs/fgsm_smoke diabaikan oleh .gitignore. Log, metrik, dan gambar hasil baseline ikut ter-commit.
+- Berkas model .pt serta folder runs/fgsm/ dan runs/fgsm_mitigated/ diabaikan oleh .gitignore (sesuai aturan). Log, metrik, dan gambar hasil baseline ikut ter-commit.
 - Skenario: defend_the_center. Aturan label: label 1 kalau ada kategori Monster, label Self diabaikan.
-- Status: Langkah 1 sampai 5 selesai (instalasi, data, baseline, serangan, mitigasi). Demo Streamlit, laporan akhir, dan video demo masih dikerjakan.
+- Status: Instalasi, pengumpulan data, training baseline, serangan FGSM, mitigasi adversarial training, demo live web (`live_demo.py` + `index.html`), dan rekaman demo (`runs/demo/gameplay.mp4`) sudah selesai.

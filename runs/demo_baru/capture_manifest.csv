@@ -1,9 +1,0 @@
-video_frame,game_step,screenshot,label,prediction,confidence,correct
-0,0,screenshots\frame_0000.png,1,0,0.947781,0
-35,35,screenshots\frame_0035.png,0,0,0.991091,1
-70,70,screenshots\frame_0070.png,0,0,0.989147,1
-105,105,screenshots\frame_0105.png,1,1,0.999974,1
-140,140,screenshots\frame_0140.png,1,1,1.000000,1
-175,175,screenshots\frame_0175.png,1,1,1.000000,1
-210,210,screenshots\frame_0210.png,1,1,1.000000,1
-245,245,screenshots\frame_0245.png,1,1,1.000000,1

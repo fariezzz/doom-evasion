@@ -1,7 +1,7 @@
 """Record ViZDoom gameplay with synchronized CNN predictions and screenshots.
 
 Run from the project directory:
-    py demo_capture.py --model runs/baseline/best_model.pt --out runs/demo
+    py scripts/demo_capture.py --model runs/baseline/best_model.pt --out runs/demo
 """
 
 import argparse
@@ -14,7 +14,10 @@ import numpy as np
 import torch
 import vizdoom as vzd
 
-from train_baseline import SmallCNN
+try:
+    from scripts.train_baseline import SmallCNN
+except ImportError:
+    from train_baseline import SmallCNN
 
 
 CLASS_NAMES = ("TIDAK ADA MUSUH", "ADA MUSUH")

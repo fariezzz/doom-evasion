@@ -12,7 +12,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from train_baseline import FrameDataset, SmallCNN, evaluate, save_confusion_matrix
+try:
+    from scripts.train_baseline import FrameDataset, SmallCNN, evaluate, save_confusion_matrix
+except ImportError:
+    from train_baseline import FrameDataset, SmallCNN, evaluate, save_confusion_matrix
 
 
 def train_epoch_adv(model, loader, criterion, optimizer, device, train_eps):

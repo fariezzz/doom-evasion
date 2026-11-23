@@ -907,7 +907,7 @@
         const row = document.createElement("tr");
         const cell = document.createElement("td");
         cell.colSpan = 6;
-        cell.textContent = "Hasil mitigasi belum tersedia di server. Jalankan train_mitigation.py lalu attack_fgsm.py ke runs/fgsm_mitigated, lalu restart demo.";
+        cell.textContent = "Hasil mitigasi belum tersedia di server. Jalankan scripts/train_mitigation.py lalu scripts/attack_fgsm.py ke runs/fgsm_mitigated, lalu restart demo.";
         row.appendChild(cell);
         rows.appendChild(row);
         return;
