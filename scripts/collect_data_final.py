@@ -2,6 +2,7 @@ import argparse
 import csv
 import os
 import random
+import shutil
 
 import cv2
 import numpy as np
@@ -52,6 +53,10 @@ def main():
         raise SystemExit("Tombol TURN_LEFT/TURN_RIGHT tidak ditemukan: " + str(names))
 
     os.makedirs(args.out, exist_ok=True)
+    for name in os.listdir(args.out):
+        full = os.path.join(args.out, name)
+        if os.path.isdir(full) and name.startswith("ep") and "_seed" in name:
+            shutil.rmtree(full)
     manifest_path = os.path.join(args.out, "manifest.csv")
     total = {0: 0, 1: 0}
     first_shape = None

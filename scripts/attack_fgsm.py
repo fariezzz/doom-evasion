@@ -114,6 +114,9 @@ def main():
     print("Sampel awalnya benar: %d dari %d" % (initially_correct, len(test_ds)))
 
     os.makedirs(args.out, exist_ok=True)
+    for name in os.listdir(args.out):
+        if name.startswith("examples_eps_") and name.endswith(".png"):
+            os.remove(os.path.join(args.out, name))
     results = {
         "model": args.model,
         "data": args.data,

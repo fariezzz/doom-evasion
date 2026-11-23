@@ -117,7 +117,7 @@ Server demo harus di-restart setiap kali berkas demo diubah, karena server memak
 
 - Semua eksperimen hanya dilakukan di lingkungan lab lokal, di satu laptop, tanpa menyerang sistem orang lain.
 - Kode, payload, dan teknik serangan hanya untuk proyek ini dan tidak disebarkan untuk keperluan lain.
-- Hasil resmi tidak boleh dihapus atau ditimpa. Latihan ulang hanya boleh menulis ke folder latihan yang terpisah, bukan ke folder hasil resmi.
+- Menjalankan ulang skrip pengumpulan data, training, serangan, atau rekaman demo dengan folder output yang sama akan menimpa data lama secara bersih (termasuk menghapus sisa file/episode lama di folder target). Jika ingin menyimpan eksperimen terpisah tanpa menimpa, arahkan argumen `--out` ke folder lain.
 - Commit dan push ke git dilakukan oleh Ahmad sendiri, bukan oleh asisten.
 - Perubahan di laptop hanya dilakukan di dalam folder proyek ini. Jangan mengubah, menghentikan, atau me-restart apa pun di luar folder proyek ini tanpa izin eksplisit.
 

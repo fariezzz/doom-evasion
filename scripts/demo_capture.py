@@ -71,8 +71,6 @@ def main():
 
     if args.steps < 1 or args.capture_every < 1 or args.scale < 1 or args.fps <= 0:
         parser.error("--steps, --capture-every, --scale, and --fps must be positive")
-    if any(os.path.exists(os.path.join(args.out, name)) for name in ("gameplay.avi", "gameplay.mp4")):
-        parser.error("Output already exists; choose a new --out folder to avoid overwriting it")
 
     device = torch.device("cpu")
     model = SmallCNN()
@@ -102,6 +100,9 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     frames_dir = os.path.join(args.out, "screenshots")
     os.makedirs(frames_dir, exist_ok=True)
+    for name in os.listdir(frames_dir):
+        if name.startswith("frame_") and name.endswith(".png"):
+            os.remove(os.path.join(frames_dir, name))
     writer = None
     mp4_writer = None
     capture_rows = []
