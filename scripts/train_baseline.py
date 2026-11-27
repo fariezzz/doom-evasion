@@ -220,7 +220,7 @@ def main():
     elapsed = time.time() - started
     print("Training selesai dalam %.1f detik. Epoch terbaik: %d (val_macro_f1=%.4f)" % (elapsed, best_epoch, best_macro_f1))
 
-    best = torch.load(os.path.join(args.out, "best_model.pt"), map_location=device, weights_only=False)
+    best = torch.load(os.path.join(args.out, "best_model.pt"), map_location=device, weights_only=True)
     model.load_state_dict(best["state_dict"])
     test = evaluate(model, test_loader, criterion, device)
     print("TEST (model terbaik): acc=%.4f macro_f1=%.4f" % (test["accuracy"], test["macro_f1"]))

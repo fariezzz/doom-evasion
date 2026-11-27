@@ -74,7 +74,7 @@ def main():
 
     device = torch.device("cpu")
     model = SmallCNN()
-    checkpoint = torch.load(args.model, map_location=device, weights_only=False)
+    checkpoint = torch.load(args.model, map_location=device, weights_only=True)
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
     print("Model:", args.model, "| checkpoint epoch:", checkpoint.get("epoch"))

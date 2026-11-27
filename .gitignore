@@ -1,8 +1,6 @@
-# Virtual environment
+# Environment & Python cache
 .venv/
 venv/
-
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -14,24 +12,22 @@ _vizdoom.ini
 data_*/**/*.png
 data_final/dataset_summary.txt
 
-# Training checkpoints & timing-only run configs
+# Model weights, recorded videos, raw captures, & machine-specific timing configs
 runs/**/*.pt
+runs/**/*.avi
+runs/**/*.mp4
+runs/**/frame_*.png
 runs/**/run_config.txt
 
-# Gameplay frame captures are regenerable and should not be pushed.
-runs/**/frame_*.png
+# Regenerable per-frame attack logs & example PNGs
+runs/fgsm*/
+runs/pgd*/
 
-# FGSM attack outputs: generated results, shared via handoff zip, not git.
-# The attack script itself (scripts/attack_fgsm.py) IS tracked.
-runs/fgsm/
-runs/fgsm_mitigated/
-
-# Editor
+# Editor & OS
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
 
+# Local assistant notes
 GEMINI.md

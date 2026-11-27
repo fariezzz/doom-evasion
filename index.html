@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#100b08">
-  <title>DOOM Evasion · Live</title>
+  <title>DOOM Evasion · Adversarial Robustness Lab</title>
   <style>
     :root {
       color-scheme: dark;
@@ -15,6 +15,8 @@
       --text: #e8d8b5;
       --muted: #aa8c61;
       --green: #e9a43a;
+      --ok: #6fd38a;
+      --cyan: #59c8d8;
       --yellow: #ffd05a;
       --red: #ed4936;
       --mono: "Courier New", Consolas, monospace;
@@ -26,7 +28,7 @@
       color: var(--text);
       font: 14px/1.45 var(--mono);
     }
-    .shell { max-width: 1500px; margin: auto; padding: 18px clamp(12px, 3vw, 36px) 40px; }
+    .shell { max-width: 1520px; margin: auto; padding: 18px clamp(12px, 3vw, 36px) 48px; }
     .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
     .brand { display: flex; gap: 9px; align-items: center; font: 700 12px var(--mono); letter-spacing: .08em; }
     .brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--red); color: var(--red); }
@@ -35,47 +37,53 @@
     .pill.offline { color: var(--red); }
     .hero { display: flex; justify-content: space-between; align-items: end; gap: 16px; padding: 18px 0 14px; }
     h1 { margin: 4px 0; color: var(--red); font-size: clamp(24px, 4vw, 36px); line-height: 1.1; letter-spacing: .04em; }
-    .hero p { color: var(--muted); max-width: 760px; margin: 6px 0 0; font-size: 12px; }
+    .hero p { color: var(--muted); max-width: 820px; margin: 6px 0 0; font-size: 12px; }
     .hero-tag { color: var(--yellow); font: 11px/1.5 var(--mono); white-space: nowrap; text-align: right; }
-    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 14px 0 8px; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 22px 0 8px; }
     h2 { color: var(--yellow); font-size: 14px; margin: 0; letter-spacing: .05em; text-transform: uppercase; }
     .section-note { color: var(--muted); font-size: 12px; }
     .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: 0; overflow: hidden; }
-    .card-head { min-height: 38px; padding: 7px 10px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .card-head { min-height: 38px; padding: 7px 10px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
     .card-title { color: var(--yellow); font: 700 11px var(--mono); letter-spacing: .06em; }
     .live { color: var(--green); font: 10px var(--mono); }
     .live:before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 7px; }
     .offline .live { color: var(--red); }
     .offline .live:before { background: var(--red); }
     .game-card { display: flex; flex-direction: column; }
-    .card-head-actions { display: flex; align-items: center; gap: 10px; }
+    .card-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .game-screen-wrap { position: relative; display: flex; justify-content: center; background: #000; }
-    .screen { display: block; width: min(100%, 1100px, 86vh); aspect-ratio: 4 / 3; object-fit: contain; image-rendering: pixelated; background: #000; }
-    .game-overlay { position: absolute; left: 8px; top: 8px; display: grid; gap: 3px; min-width: 150px; padding: 7px 9px; background: #080605eF; border: 1px solid var(--red); pointer-events: none; }
+    .screen { display: block; width: min(100%, 1100px, 82vh); aspect-ratio: 4 / 3; object-fit: contain; image-rendering: pixelated; background: #000; }
+    .game-overlay { position: absolute; left: 8px; top: 8px; display: grid; gap: 3px; min-width: 195px; padding: 8px 10px; background: #080605ef; border: 1px solid var(--red); pointer-events: none; }
     .game-overlay span { color: var(--text); font: 11px var(--mono); }
     .game-overlay strong { color: var(--green); font: 700 14px var(--mono); }
     .game-overlay strong.bad { color: var(--red); }
+    .overlay-badge { color: var(--cyan) !important; font-size: 10px !important; }
     .game-error { padding: 6px 10px; border-top: 1px solid var(--red); color: var(--red); font: 11px var(--mono); }
     .crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; opacity: .8; }
     .crosshair:before, .crosshair:after { content: ""; position: absolute; background: #ffd05a; }
     .crosshair:before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-.5px); }
     .crosshair:after { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-.5px); }
-    .mouse-hint { position: absolute; right: 8px; bottom: 8px; padding: 5px 8px; background: #080605eF; border: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); pointer-events: none; }
+    .mouse-hint { position: absolute; right: 8px; bottom: 8px; padding: 5px 8px; background: #080605ef; border: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); pointer-events: none; }
     .mouse-hint.active { color: var(--green); border-color: var(--green); }
     .map-warning { padding: 7px 10px; border-top: 1px solid var(--yellow); color: var(--yellow); font: 11px var(--mono); }
-    .model-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 10px; border-top: 1px solid var(--line); background: #0c0907; }
-    .model-toggle span { color: var(--muted); font-size: 10px; }
-    .model-toggle button.active { background: #6b2b18; border-color: var(--yellow); color: #fff1c8; }
-    .model-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); }
-    .model-compare div { border: 1px solid var(--line); padding: 8px; font-size: 11px; color: var(--muted); }
-    .model-compare strong { display: block; color: var(--green); font-size: 14px; }
-    .model-compare div.disagree strong { color: var(--red); }
+    .toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line); background: #0c0907; }
+    .toolbar-row span.lbl { color: var(--muted); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+    .toolbar-sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+    .toolbar-row button.active { background: #6b2b18; border-color: var(--yellow); color: #fff1c8; }
+    .toolbar-row button.attack-on { background: #5a1210; border-color: var(--red); color: #ffd4cc; }
+    .toolbar-row button.xai-on { background: #14333a; border-color: var(--cyan); color: #d6f7ff; }
+    .model-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); }
+    .model-compare .cmp-box { border: 1px solid var(--line); padding: 8px 10px; font-size: 11px; color: var(--muted); background: #130c09; }
+    .model-compare .cmp-box strong { display: block; color: var(--green); font-size: 13px; margin-bottom: 2px; }
+    .model-compare .cmp-box.bad strong { color: var(--red); }
+    .model-compare .cmp-box.ok strong { color: var(--ok); }
     .model-note { padding: 7px 10px; border-top: 1px solid var(--yellow); color: var(--yellow); font: 11px var(--mono); }
-    .capture-evaluation-group { margin-bottom: 14px; }
-    .capture-evaluation-group h4 { margin: 0 0 8px; color: var(--yellow); font-size: 11px; }
+    .session-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line); background: #120c09; font-size: 11px; color: var(--muted); }
+    .session-strip b { color: var(--yellow); }
+    .session-strip .bad-num { color: var(--red); font-weight: 700; }
+    .session-strip .ok-num { color: var(--ok); font-weight: 700; }
     .map-select-wrap { display: flex; align-items: center; gap: 6px; color: var(--muted); font: 10px var(--mono); }
-    .game-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 10px; color: var(--muted); font: 11px var(--mono); }
     .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-top: 1px solid var(--line); background: #0c0907; }
     .keyboard { display: grid; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 38px); gap: 4px; }
     .keyboard .key-forward { grid-column: 2; grid-row: 1; }
@@ -84,11 +92,11 @@
     .keyboard .key-right { grid-column: 3; grid-row: 2; }
     .key, button, select {
       background: #21130d; color: var(--text); border: 1px solid #a34a2c; border-radius: 0;
-      padding: 7px 10px; font: 700 12px var(--mono); cursor: pointer;
+      padding: 6px 9px; font: 700 11px var(--mono); cursor: pointer;
     }
-    button:hover { border-color: var(--yellow); color: var(--yellow); }
+    button:hover, select:hover { border-color: var(--yellow); color: var(--yellow); }
     button:active, button.pressed { background: #6b2b18; border-color: var(--yellow); color: #fff1c8; }
-    button:disabled { opacity: .45; cursor: not-allowed; }
+    button:disabled, select:disabled { opacity: .45; cursor: not-allowed; }
     button.danger { border-color: var(--red); color: var(--red); }
     button:focus-visible, select:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
     .control-hints { color: var(--muted); font-size: 10px; line-height: 1.7; }
@@ -98,6 +106,8 @@
     #game-card:fullscreen .game-screen-wrap { flex: 1; min-height: 0; }
     #game-card:fullscreen .screen { width: 100%; height: 100%; max-width: none; aspect-ratio: auto; }
     #game-card:fullscreen .controls { justify-content: center; }
+
+    /* Capture Panel */
     .capture-panel { margin-top: 12px; }
     .capture-body { display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 14px; padding: 12px; }
     .capture-body img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #000; image-rendering: pixelated; }
@@ -108,54 +118,70 @@
     .capture-tools p { flex: 1 1 280px; margin: 0; color: var(--muted); font-size: 10px; }
     .capture-evaluation { padding: 12px; border-top: 1px solid var(--line); }
     .capture-evaluation-summary { margin: 0 0 10px; color: var(--yellow); font-size: 11px; }
-    .capture-evaluation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .capture-evaluation-group { margin-bottom: 16px; }
+    .capture-evaluation-group h4 { margin: 0 0 8px; color: var(--yellow); font-size: 12px; letter-spacing: .05em; }
+    .capture-evaluation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
     .capture-sample { min-width: 0; padding: 8px; border: 1px solid var(--line); background: #0c0907; }
     .capture-sample h3 { margin: 0 0 7px; color: var(--yellow); font-size: 10px; }
-    .capture-sample img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #000; image-rendering: pixelated; }
-    .capture-sample p { margin: 7px 0 0; color: var(--muted); font-size: 10px; }
+    .sample-imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+    .sample-imgs.single { grid-template-columns: 1fr; }
+    .sample-img-cell { text-align: center; }
+    .sample-img-cell span { display: block; font-size: 9px; color: var(--muted); margin-bottom: 2px; }
+    .sample-img-cell img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #000; image-rendering: pixelated; border: 1px solid #351a12; }
+    .capture-sample p { margin: 6px 0 0; color: var(--muted); font-size: 10px; }
     .capture-sample .capture-sample-status { font-weight: 700; }
-    .capture-sample-status.good { color: var(--green); }
+    .capture-sample-status.good { color: var(--ok); }
     .capture-sample-status.bad { color: var(--red); }
     .capture-evaluation-error { margin: 0; padding: 0 12px 12px; color: var(--red); font-size: 11px; }
+    .sample-downloads { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+    .sample-download { display: inline-block; background: #21130d; color: var(--text); border: 1px solid #a34a2c; padding: 4px 6px; font: 700 10px var(--mono); text-decoration: none; cursor: pointer; }
+    .sample-download:hover { border-color: var(--yellow); color: var(--yellow); }
+
+    /* Metrics & Tables */
     .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .metric { padding: 12px; }
     .metric span { color: var(--muted); font-size: 11px; }
-    .metric strong { display: block; font: 700 clamp(20px, 3vw, 28px) var(--mono); margin-top: 5px; color: var(--green); }
-    .attack-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .metric strong { display: block; font: 700 clamp(18px, 2.5vw, 26px) var(--mono); margin-top: 5px; color: var(--green); }
+    .metric small { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; }
+    .attack-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 10px; }
+    .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 10px; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
-    th, td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    th { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+    th, td { padding: 9px 11px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
     td.emph { color: var(--yellow); font-weight: 700; }
+    td.good { color: var(--ok); font-weight: 700; }
+    td.bad { color: var(--red); font-weight: 700; }
+    td.heat { text-align: center; font-weight: 700; }
     .attack-image { padding: 10px; }
     .attack-image img { display: block; width: 100%; height: auto; }
+    .chart-box { padding: 12px 14px; }
+    .chart-box svg { display: block; width: 100%; height: auto; max-height: 320px; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 6px 14px 12px; font-size: 11px; color: var(--muted); }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 3px; display: inline-block; }
     .download-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0 0; }
     .download-row span { color: var(--muted); font-size: 11px; }
-    .sample-download { display: inline-block; margin-top: 7px; background: #21130d; color: var(--text); border: 1px solid #a34a2c; padding: 5px 8px; font: 700 11px var(--mono); text-decoration: none; cursor: pointer; }
-    .sample-download:hover { border-color: var(--yellow); color: var(--yellow); }
-    .explain { padding: 13px 15px; color: var(--muted); font-size: 12px; }
+    .explain { padding: 12px 14px; color: var(--muted); font-size: 12px; }
     .explain b { color: var(--text); }
     .notice { margin-top: 10px; padding: 9px 11px; border-left: 2px solid var(--yellow); background: var(--panel-2); color: var(--text); font-size: 11px; }
-    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .step { padding: 13px 15px; }
     .step i { color: var(--green); font: normal 10px var(--mono); }
     .step b { display: block; margin: 6px 0 3px; }
     .step span { color: var(--muted); font-size: 12px; }
-    .message { color: var(--muted); padding: 13px 15px; font-size: 12px; }
-    .message.error { color: var(--red); }
-    footer { border-top: 1px solid var(--line); color: var(--muted); margin-top: 24px; padding-top: 10px; font: 10px var(--mono); }
-    @media (max-width: 850px) {
+    footer { border-top: 1px solid var(--line); color: var(--muted); margin-top: 28px; padding-top: 10px; font: 10px var(--mono); }
+    @media (max-width: 960px) {
       .hero { align-items: start; flex-direction: column; }
-      .grid, .attack-layout { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
       .capture-body { grid-template-columns: 1fr; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
+      .steps { grid-template-columns: repeat(2, 1fr); }
     }
-    @media (max-width: 520px) {
+    @media (max-width: 560px) {
       .shell { padding-inline: 12px; }
-      .topbar { align-items: start; }
       .hero-tag { display: none; }
       .controls { justify-content: center; }
-      .game-footer { align-items: start; flex-direction: column; }
       .steps { grid-template-columns: 1fr; }
       .section-head { align-items: start; flex-direction: column; }
     }
@@ -164,22 +190,23 @@
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">D</span><span>DOOM / AI ROBUSTNESS LAB</span></div>
+      <div class="brand"><span class="brand-mark">D</span><span>DOOM EVASION / ADVERSARIAL ROBUSTNESS LAB</span></div>
       <span class="pill offline" id="server-status">MENGHUBUNGKAN...</span>
     </header>
 
     <section class="hero">
       <div>
-        <div class="eyebrow">DOOM EVASION · LIVE GAME</div>
-        <h1>DOOM EVASION</h1>
-        <p>Kontrol keyboard dan mouse · live tidak direkam · capture baseline manual hanya disimpan sementara di memori.</p>
+        <div class="eyebrow">KEAMANAN INFORMASI · TOPIK 2 OFFENSIVE AI</div>
+        <h1>DOOM EVASION AI</h1>
+        <p>Lab demo interaktif serangan adversarial (FGSM &amp; PGD), Explainable AI (Grad-CAM), transferabilitas Black-Box, serta pertahanan berlapis (Adversarial Training v1/v2 + Input Preprocessing) pada ViZDoom.</p>
       </div>
-      <div class="hero-tag"><span id="hero-map">DEFEND THE CENTER</span><br>30 FPS · LOCAL</div>
+      <div class="hero-tag"><span id="hero-map">DEFEND THE CENTER</span><br>LOCAL LAB · ZERO CLOUD</div>
     </section>
 
+    <!-- 01. LIVE GAME & ADVERSARIAL STREAM -->
     <div class="section-head">
-      <h2>GAME / 01</h2>
-      <span class="section-note">WASD · MOUSE · SPACE · FULLSCREEN</span>
+      <h2>01 / Live Game &amp; Adversarial Stream</h2>
+      <span class="section-note">WASD · MOUSE · SPACE · C CAPTURE · FULLSCREEN</span>
     </div>
     <section class="grid">
       <article class="card game-card" id="game-card">
@@ -194,18 +221,68 @@
           </div>
         </div>
         <div id="map-warning" class="map-warning" hidden></div>
-        <div class="model-toggle" role="group" aria-label="Pilih model">
-          <span>MODEL:</span>
+
+        <!-- Model Selection Bar -->
+        <div class="toolbar-row" role="group" aria-label="Pilih model aktif">
+          <span class="lbl">MODEL:</span>
           <button type="button" id="model-baseline" data-model-mode="baseline">BASELINE</button>
-          <button type="button" id="model-mitigation" data-model-mode="mitigation">MITIGASI</button>
+          <button type="button" id="model-mitigation" data-model-mode="mitigation">MITIGASI V1</button>
+          <button type="button" id="model-mitigation-v2" data-model-mode="mitigation_v2">MITIGASI V2</button>
           <button type="button" id="model-compare" data-model-mode="compare">BANDINGKAN</button>
-          <span id="model-status">Memuat status model...</span>
+          <span class="toolbar-sep"></span>
+          <span class="lbl" id="model-status">Memuat status model...</span>
         </div>
+
+        <!-- Live Attack, Defense & XAI Overlay Bar -->
+        <div class="toolbar-row" role="group" aria-label="Kontrol serangan live, defense, dan XAI">
+          <span class="lbl">SERANGAN LIVE:</span>
+          <button type="button" id="atk-none" data-live-atk="none" class="active">MATI</button>
+          <button type="button" id="atk-fgsm" data-live-atk="fgsm">FGSM</button>
+          <button type="button" id="atk-pgd" data-live-atk="pgd">PGD-5</button>
+          <label class="map-select-wrap" for="live-eps">ε
+            <select id="live-eps">
+              <option value="0.01">0.01</option>
+              <option value="0.03" selected>0.03</option>
+              <option value="0.05">0.05</option>
+            </select>
+          </label>
+          <label class="map-select-wrap" for="live-source">TARGET
+            <select id="live-source">
+              <option value="whitebox" selected>White-Box</option>
+              <option value="transfer_baseline">Transfer (dari Baseline)</option>
+            </select>
+          </label>
+          <span class="toolbar-sep"></span>
+          <label class="map-select-wrap" for="live-defense">DEFENSE INPUT
+            <select id="live-defense">
+              <option value="none" selected>Tanpa Preprocessing</option>
+              <option value="bit_depth_4">Bit-Depth 4-bit</option>
+              <option value="bit_depth_3">Bit-Depth 3-bit</option>
+              <option value="median_3x3">Median Filter 3x3</option>
+              <option value="gaussian_3x3">Gaussian Blur 3x3</option>
+              <option value="bit4_median">Bit-4 + Median 3x3</option>
+            </select>
+          </label>
+          <span class="toolbar-sep"></span>
+          <span class="lbl">TAMPILAN:</span>
+          <button type="button" id="view-clean" data-view="clean" class="active">NORMAL</button>
+          <button type="button" id="view-gradcam" data-view="gradcam">GRAD-CAM</button>
+          <button type="button" id="view-adv" data-view="adversarial">INPUT ADV</button>
+          <button type="button" id="view-pert" data-view="perturbation">PERTURBASI x20</button>
+          <span class="toolbar-sep"></span>
+          <button type="button" id="toggle-smoothing" aria-pressed="false">EMA SMOOTH: OFF</button>
+        </div>
+
         <div id="model-note" class="model-note" hidden></div>
-        <div id="model-compare" class="model-compare" hidden>
-          <div id="compare-baseline"><strong>BASELINE: -</strong><span>-</span></div>
-          <div id="compare-mitigation"><strong>MITIGASI: -</strong><span>-</span></div>
+
+        <!-- Multi-Model Compare Strip -->
+        <div id="model-compare-panel" class="model-compare" hidden>
+          <div id="compare-baseline" class="cmp-box"><strong>BASELINE: -</strong><span>-</span></div>
+          <div id="compare-mitigation" class="cmp-box"><strong>MITIGASI V1: -</strong><span>-</span></div>
+          <div id="compare-mitigation-v2" class="cmp-box" hidden><strong>MITIGASI V2: -</strong><span>-</span></div>
         </div>
+
+        <!-- Game Viewport -->
         <div class="game-screen-wrap" id="game-screen-wrap">
           <img class="screen" id="game-frame" alt="Tampilan permainan ViZDoom secara langsung">
           <div class="crosshair" aria-hidden="true"></div>
@@ -213,12 +290,22 @@
             <strong id="live-prediction">MENUNGGU</strong>
             <span id="live-true-label">LABEL GAME: —</span>
             <span id="live-confidence">—</span>
-            <span id="live-prob-monster">—</span>
+            <span id="live-prob-both">—</span>
+            <span id="live-lab-badge" class="overlay-badge">MODE: BASELINE · BERSIH</span>
             <span id="fps">— FPS</span>
           </div>
           <div class="mouse-hint" id="mouse-hint">KLIK FRAME UNTUK KONTROL MOUSE</div>
         </div>
+
+        <!-- Live Session Telemetry Strip -->
+        <div class="session-strip">
+          <span id="session-summary"><b>STATISTIK SESI LIVE</b> (terpisah dari test set resmi): Menunggu frame...</span>
+          <button type="button" id="reset-stats">RESET STAT SESI</button>
+        </div>
+
         <div id="game-error" class="game-error" hidden></div>
+
+        <!-- Controls -->
         <div class="controls">
           <div class="keyboard" aria-label="Kontrol keyboard WASD">
             <button type="button" class="key key-forward" data-control="forward" aria-label="Maju, W atau panah atas">W</button>
@@ -226,201 +313,297 @@
             <button type="button" class="key key-backward" data-control="backward" aria-label="Mundur, S atau panah bawah">S</button>
             <button type="button" class="key key-right" data-control="right" aria-label="Belok kanan, D atau panah kanan">D</button>
           </div>
-          <div class="control-hints" id="control-hints"><b>W / S</b> GERAK<br><b>A / D</b> <span id="hint-turn-kind">BELOK</span><br><b>MOUSE</b> <span id="hint-mouse-kind">BIDIK + TEMBAK</span><br><b>C</b> CAPTURE BASELINE</div>
+          <div class="control-hints" id="control-hints"><b>W / S</b> GERAK (TAHAN)<br><b>A / D</b> <span id="hint-turn-kind">BELOK</span><br><b>MOUSE</b> <span id="hint-mouse-kind">BIDIK + TEMBAK</span><br><b>C</b> CAPTURE FRAME</div>
           <button type="button" class="key space-key" data-control="attack" aria-label="Tembak dengan spasi">SPACE</button>
-          <button type="button" id="capture-baseline">CAPTURE BASELINE [C]</button>
-          <button type="button" class="danger" id="reset-game">RESET</button>
+          <button type="button" id="capture-frame">CAPTURE FRAME [C]</button>
+          <button type="button" class="danger" id="reset-game">RESET GAME</button>
         </div>
       </article>
     </section>
 
+    <!-- CAPTURE EVALUATION PANEL -->
     <section id="baseline-capture" class="card capture-panel" hidden>
       <div class="card-head">
-        <span class="card-title">CAPTURE TERBARU · BASELINE</span>
+        <span class="card-title">CAPTURE TERBARU · ANALISIS MULTI-MODEL (XAI &amp; SERANGAN)</span>
         <span class="live">RAM SAJA</span>
       </div>
       <div class="capture-body">
-        <img id="capture-image" alt="Frame yang ditangkap untuk analisis baseline">
+        <img id="capture-image" alt="Frame yang ditangkap untuk analisis multi-model">
         <div class="capture-info">
           <strong id="capture-prediction">—</strong>
           <span id="capture-confidence">—</span><br>
           <span id="capture-true-label">—</span><br>
           <span id="capture-compare">—</span>
-          <p>Frame capture dan prediksi live. Evaluasi di bawah menguji gambar input model 84x84; capture berikutnya menggantikan yang ini dan tetap hanya di memori.</p>
+          <p>Capture ini menyimpan frame bersih 84x84 di RAM untuk diuji langsung dengan FGSM 1-langkah atau PGD-10 iteratif, beserta visualisasi Grad-CAM dan peta perturbasi x20 di seluruh model yang tersedia.</p>
         </div>
       </div>
       <div class="capture-tools">
         <label class="capture-label" for="capture-label">LABEL SEBENARNYA
           <select id="capture-label">
             <option value="" selected disabled>Pilih kondisi frame</option>
-            <option value="1">Ada musuh</option>
-            <option value="0">Tidak ada musuh</option>
+            <option value="1">Ada musuh (1)</option>
+            <option value="0">Tidak ada musuh (0)</option>
           </select>
         </label>
-        <button type="button" id="evaluate-capture" disabled>UJI FGSM KEDUA MODEL</button>
-        <button type="button" id="download-capture" disabled>UNDUH FRAME CAPTURE</button>
-        <button type="button" id="download-evaluation" disabled>UNDUH HASIL EVALUASI (JSON)</button>
-        <p>Set label sesuai isi frame, lalu bandingkan gambar asli dengan gangguan FGSM eps 0,01 / 0,03 / 0,05 untuk baseline dan mitigasi pada capture yang sama. Ini evaluasi satu capture, bukan akurasi dataset.</p>
+        <label class="capture-label" for="capture-attack">METODE SERANGAN
+          <select id="capture-attack">
+            <option value="fgsm" selected>FGSM (1-Step)</option>
+            <option value="pgd">PGD-10 (Iteratif)</option>
+          </select>
+        </label>
+        <label class="capture-label" for="capture-defense">PERTAHANAN INPUT
+          <select id="capture-defense">
+            <option value="none" selected>Tanpa Preprocessing</option>
+            <option value="bit_depth_4">Bit-Depth 4-bit</option>
+            <option value="bit_depth_3">Bit-Depth 3-bit</option>
+            <option value="median_3x3">Median Filter 3x3</option>
+            <option value="gaussian_3x3">Gaussian Blur 3x3</option>
+            <option value="bit4_median">Bit-4 + Median 3x3</option>
+          </select>
+        </label>
+        <button type="button" id="evaluate-capture" disabled>UJI SEMUA MODEL</button>
+        <button type="button" id="download-capture" disabled>UNDUH CAPTURE</button>
+        <button type="button" id="download-evaluation" disabled>UNDUH EVALUASI (JSON)</button>
       </div>
       <p id="capture-evaluation-error" class="capture-evaluation-error" role="alert" hidden></p>
       <div id="capture-evaluation" class="capture-evaluation" aria-live="polite" hidden>
         <p id="capture-evaluation-summary" class="capture-evaluation-summary"></p>
-        <div id="capture-evaluation-grid" class="capture-evaluation-grid"></div>
+        <div id="capture-evaluation-grid"></div>
       </div>
     </section>
 
-    <div class="section-head"><h2>02 / Hasil evaluasi baseline</h2><span class="section-note">Tes resmi pada kumpulan data uji, sebelum FGSM</span></div>
-    <section class="metrics">
-      <article class="card metric"><span>Akurasi data uji</span><strong id="metric-accuracy">—</strong></article>
-      <article class="card metric"><span>Macro F1</span><strong id="metric-f1">—</strong></article>
-      <article class="card metric"><span>Prediksi benar di data uji</span><strong id="metric-correct">—</strong></article>
-      <article class="card metric"><span>Jumlah frame data uji</span><strong id="metric-total">—</strong></article>
-    </section>
-
+    <!-- 02. BASELINE OFFICIAL METRICS -->
     <div class="section-head">
-      <h2>03 / Ketahanan terhadap FGSM</h2>
-      <span class="section-note">Hasil resmi dihitung pada test set, bukan pada game live</span>
+      <h2>02 / Hasil Evaluasi Baseline (Resmi)</h2>
+      <span class="section-note">Test set tetap (565 frame, 5 episode terpisah), sebelum serangan</span>
     </div>
-    <section class="attack-layout">
-      <article class="card">
-        <div class="card-head"><span class="card-title">UJI ADVERSARIAL PADA TEST SET</span></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Epsilon</th><th>Tertipu / awalnya benar</th><th>ASR</th><th>Akurasi sesudah</th></tr></thead>
-            <tbody id="attack-rows"><tr><td colspan="4">Memuat hasil…</td></tr></tbody>
-          </table>
-        </div>
-        <div class="explain"><b>ASR:</b> persentase frame yang awalnya dikenali dengan benar tetapi menjadi salah setelah gambar diubah FGSM. ASR tinggi berarti model lebih mudah dikelabui oleh gangguan tersebut.</div>
-      </article>
-      <article class="card">
-        <div class="card-head">
-          <span class="card-title">CONTOH TEST SET · FRAME ASLI / FGSM / GANGGUAN</span>
-          <label class="section-note" for="example-epsilon">ε
-            <select id="example-epsilon">
-              <option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.05">0.05</option>
-            </select>
-          </label>
-        </div>
-        <div class="attack-image"><img id="official-example" alt="Contoh tetap dari pengujian FGSM test set"></div>
-      </article>
-    </section>
-    <div class="notice"><b>Perlu dibedakan:</b> tabel ASR resmi dihitung pada kumpulan test set yang tetap, bukan dari frame live.</div>
-
-    <div class="section-head"><h2>04 / Hasil sesudah mitigasi</h2><span class="section-note">Adversarial training, train eps 0,03, diuji ulang pada test set yang sama</span></div>
     <section class="metrics">
-      <article class="card metric"><span>Akurasi data uji sesudah mitigasi</span><strong id="metric-mitigation-accuracy">-</strong></article>
-      <article class="card metric"><span>Macro F1 sesudah mitigasi</span><strong id="metric-mitigation-f1">-</strong></article>
-      <article class="card metric"><span>Prediksi benar di data uji</span><strong id="metric-mitigation-correct">-</strong></article>
-      <article class="card metric"><span>Harga akurasi bersih</span><strong id="metric-mitigation-cost">-</strong></article>
+      <article class="card metric"><span>Akurasi data uji</span><strong id="metric-accuracy">—</strong><small>Majority baseline: 86.19%</small></article>
+      <article class="card metric"><span>Macro F1</span><strong id="metric-f1">—</strong><small>Metrik utama kelas tak seimbang</small></article>
+      <article class="card metric"><span>Prediksi benar di test set</span><strong id="metric-correct">—</strong><small>Penyebut ASR baseline</small></article>
+      <article class="card metric"><span>Jumlah frame data uji</span><strong id="metric-total">—</strong><small>Skenario Defend the Center</small></article>
     </section>
+
+    <!-- 03. BASELINE FGSM + EVASION BREAKDOWN -->
+    <div class="section-head">
+      <h2>03 / Ketahanan Baseline terhadap FGSM &amp; Breakdown Evasion</h2>
+      <span class="section-note">Memisahkan Evasion (1→0, musuh menghilang) vs False Alarm (0→1)</span>
+    </div>
     <section class="attack-layout">
       <article class="card">
-        <div class="card-head"><span class="card-title">ASR SEBELUM VS SESUDAH MITIGASI</span></div>
+        <div class="card-head"><span class="card-title">UJI ADVERSARIAL FGSM PADA BASELINE (TEST SET RESMI)</span></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Epsilon</th><th>ASR sebelum</th><th>ASR sesudah</th><th>Penurunan ASR</th><th>Akurasi sesudah (sebelum)</th><th>Akurasi sesudah (sesudah)</th></tr></thead>
-            <tbody id="mitigation-rows"><tr><td colspan="6">Memuat hasil…</td></tr></tbody>
+            <thead>
+              <tr>
+                <th>Epsilon</th>
+                <th>Tertipu / Awal Benar</th>
+                <th>ASR</th>
+                <th>Akurasi Sesudah</th>
+                <th>Evasion (1→0)</th>
+                <th>False Alarm (0→1)</th>
+              </tr>
+            </thead>
+            <tbody id="attack-rows"><tr><td colspan="6">Memuat hasil…</td></tr></tbody>
           </table>
         </div>
-        <div class="explain" id="mitigation-explain"><b>Mitigasi:</b> model dilatih ulang dari nol dengan contoh adversarial pada train eps 0,03, memakai split dan seed yang sama dengan baseline. <b>Harga:</b> akurasi bersih dan macro-F1 turun, karena model mengorbankan sebagian ketepatan pada gambar bersih demi ketahanan. <b>Catatan penyebut:</b> ASR dihitung hanya dari frame yang awalnya dikenali benar, jadi penyebut sebelum mitigasi 544 dan sesudah mitigasi 513.</div>
+        <div class="explain"><b>Evasion (1→0)</b> berarti frame bermusuh berhasil dikelabui menjadi "tidak ada musuh" (ancaman taktis utama). <b>False Alarm (0→1)</b> berarti frame kosong dipaksa memicu alarm palsu.</div>
       </article>
       <article class="card">
         <div class="card-head">
-          <span class="card-title">CONTOH TEST SET SESUDAH MITIGASI · FRAME ASLI / FGSM / GANGGUAN</span>
-          <label class="section-note" for="example-epsilon-mitigated">ε
-            <select id="example-epsilon-mitigated">
-              <option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.05">0.05</option>
+          <span class="card-title">CONTOH TEST SET · FRAME ASLI / ADVERSARIAL / PERTURBASI x20</span>
+          <div class="card-head-actions">
+            <label class="section-note" for="example-source">SUMBER
+              <select id="example-source">
+                <option value="fgsm" selected>Baseline · FGSM</option>
+                <option value="pgd">Baseline · PGD-10</option>
+                <option value="fgsm-mitigated">Mitigasi v1 · FGSM</option>
+                <option value="pgd-mitigated">Mitigasi v1 · PGD-10</option>
+                <option value="fgsm-mitigated-v2">Mitigasi v2 · FGSM</option>
+                <option value="pgd-mitigated-v2">Mitigasi v2 · PGD-10</option>
+              </select>
+            </label>
+            <label class="section-note" for="example-epsilon">ε
+              <select id="example-epsilon">
+                <option value="0.01">0.01</option><option value="0.03" selected>0.03</option><option value="0.05">0.05</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="attack-image"><img id="official-example" alt="Contoh tetap dari pengujian adversarial test set"></div>
+      </article>
+    </section>
+
+    <!-- 04. MITIGATION V1 & V2 COMPARISON -->
+    <div class="section-head">
+      <h2>04 / Hasil Mitigasi: Adversarial Training v1 (Resmi) vs v2 (FGSM-RS Multi-Eps)</h2>
+      <span class="section-note">v1: FGSM ε=0.03 · v2: FGSM-RS Multi-ε {0.01,0.03,0.05} + Eval-Mode Grad + Seleksi Robust Val</span>
+    </div>
+    <section class="metrics">
+      <article class="card metric"><span>Akurasi Bersih (v1 / v2)</span><strong id="metric-mitigation-accuracy">-</strong><small id="metric-mitigation-v2-acc">v2: -</small></article>
+      <article class="card metric"><span>Macro F1 (v1 / v2)</span><strong id="metric-mitigation-f1">-</strong><small id="metric-mitigation-v2-f1">v2: -</small></article>
+      <article class="card metric"><span>Penyebut ASR (v1 / v2)</span><strong id="metric-mitigation-correct">-</strong><small id="metric-mitigation-v2-correct">v2: -</small></article>
+      <article class="card metric"><span>Harga Akurasi Bersih</span><strong id="metric-mitigation-cost">-</strong><small id="metric-mitigation-v2-cost">v2: -</small></article>
+    </section>
+    <section class="attack-layout">
+      <article class="card">
+        <div class="card-head"><span class="card-title">PERBANDINGAN ASR &amp; AKURASI ADVERSARIAL: BASELINE VS MITIGASI V1 VS MITIGASI V2 (FGSM &amp; PGD-10)</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Serangan</th>
+                <th>ε</th>
+                <th>ASR Baseline</th>
+                <th>ASR Mitigasi v1</th>
+                <th>ASR Mitigasi v2</th>
+                <th>Adv Acc Baseline</th>
+                <th>Adv Acc v1</th>
+                <th>Adv Acc v2</th>
+              </tr>
+            </thead>
+            <tbody id="mitigation-rows"><tr><td colspan="8">Memuat hasil…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="explain" id="mitigation-explain"><b>Temuan Kunci:</b> Serangan iteratif <b>PGD-10</b> menghilangkan anomali overshoot satu langkah FGSM dan menguji apakah model mitigasi benar-benar tangguh (bukan sekadar <i>gradient masking</i>).</div>
+      </article>
+    </section>
+
+    <!-- 05. ROBUSTNESS CURVES (SVG) -->
+    <div class="section-head">
+      <h2>05 / Kurva Ketahanan (Robustness Curve · ε = 0.00 sampai 0.10)</h2>
+      <span class="section-note">Sapuan 8 nilai epsilon untuk FGSM vs PGD-10 pada seluruh model</span>
+    </div>
+    <section class="attack-layout">
+      <article class="card">
+        <div class="card-head">
+          <span class="card-title">GRAFIK ASR (%) TERHADAP KEKUATAN GANGGUAN (ε)</span>
+          <div class="card-head-actions">
+            <button type="button" class="active" data-curve-mode="pgd" id="curve-pgd">PGD-10 (ITERATIF)</button>
+            <button type="button" data-curve-mode="fgsm" id="curve-fgsm">FGSM (1-STEP)</button>
+            <button type="button" data-curve-mode="both" id="curve-both">FGSM + PGD-10</button>
+          </div>
+        </div>
+        <div class="chart-box" id="robustness-chart">Memuat kurva ketahanan…</div>
+        <div class="chart-legend" id="robustness-legend"></div>
+      </article>
+    </section>
+
+    <!-- 06. BLACK-BOX TRANSFERABILITY MATRIX -->
+    <div class="section-head">
+      <h2>06 / Matriks Transferabilitas Black-Box (Source → Target, ε = 0.03)</h2>
+      <span class="section-note">Diagonal = White-Box · Luar Diagonal = Serangan Transfer Black-Box tanpa mengetahui bobot target</span>
+    </div>
+    <section class="two-col">
+      <article class="card">
+        <div class="card-head"><span class="card-title">TRANSFER MATRIX · FGSM (ε = 0.03)</span></div>
+        <div class="table-wrap" id="transfer-fgsm-wrap"><p class="explain">Memuat matriks…</p></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="card-title">TRANSFER MATRIX · PGD-10 (ε = 0.03)</span></div>
+        <div class="table-wrap" id="transfer-pgd-wrap"><p class="explain">Memuat matriks…</p></div>
+      </article>
+    </section>
+
+    <!-- 07. DEFENSE-IN-DEPTH COMPARISON -->
+    <div class="section-head">
+      <h2>07 / Evaluasi Pertahanan Berlapis (Input Preprocessing vs Adversarial Training, ε = 0.03)</h2>
+      <span class="section-note">Membandingkan trade-off akurasi bersih, FGSM ASR, dan PGD-10 ASR lintas strategi pertahanan</span>
+    </div>
+    <section class="attack-layout">
+      <article class="card">
+        <div class="card-head">
+          <span class="card-title">MATRIKS TRADE-OFF PERTAHANAN (DEFENSE-IN-DEPTH)</span>
+          <label class="section-note" for="defense-filter">FILTER MODEL
+            <select id="defense-filter">
+              <option value="all" selected>Semua Model</option>
+              <option value="baseline">Baseline saja</option>
+              <option value="mitigation_v1">Mitigasi v1 saja</option>
+              <option value="mitigation_v2">Mitigasi v2 saja</option>
             </select>
           </label>
         </div>
-        <div class="attack-image"><img id="mitigated-example" alt="Contoh tetap dari pengujian FGSM test set sesudah mitigasi"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Preprocessing Input</th>
+                <th>Akurasi Bersih</th>
+                <th>Macro-F1 Bersih</th>
+                <th>FGSM ASR</th>
+                <th>FGSM Evasion (1→0)</th>
+                <th>PGD-10 ASR</th>
+                <th>PGD-10 Adv Acc</th>
+              </tr>
+            </thead>
+            <tbody id="defense-rows"><tr><td colspan="8">Memuat perbandingan pertahanan…</td></tr></tbody>
+          </table>
+        </div>
       </article>
     </section>
+
     <div class="download-row">
-      <button type="button" id="download-official" disabled>UNDUH HASIL RESMI (JSON)</button>
-      <span>Hasil resmi baseline, serangan, dan mitigasi dalam satu berkas, untuk dipakai di laporan.</span>
+      <button type="button" id="download-official" disabled>UNDUH BUNDEL HASIL RESMI + ANALISIS (JSON)</button>
+      <span>Mencakup metrik resmi Baseline, Mitigasi v1 &amp; v2, PGD-10, Robustness Curves, Transferability, dan Defense-in-Depth.</span>
     </div>
 
-    <div class="section-head"><h2>05 / Alur eksperimen</h2></div>
+    <div class="section-head"><h2>08 / Alur Eksperimen</h2></div>
     <section class="steps">
-      <article class="card step"><i>01 — MAIN</i><b>Masukan game berubah</b><span>Keyboard dan mouse mengendalikan permainan ViZDoom di komputer ini.</span></article>
-      <article class="card step"><i>02 — KLASIFIKASI</i><b>CNN menilai setiap frame</b><span>Model mengeluarkan satu label: ada musuh atau tidak.</span></article>
-      <article class="card step"><i>03 — UJI ROBUSTNESS</i><b>FGSM mengubah satu frame</b><span>Bandingkan jawaban model sebelum dan setelah gangguan digital.</span></article>
+      <article class="card step"><i>01 — LIVE PLAY</i><b>Kendalikan ViZDoom</b><span>Mainkan skenario secara langsung di browser dengan keyboard dan mouse.</span></article>
+      <article class="card step"><i>02 — SERANGAN</i><b>FGSM &amp; PGD Real-Time</b><span>Suntikkan gangguan piksel live atau pada capture untuk mengamati evasion musuh.</span></article>
+      <article class="card step"><i>03 — XAI</i><b>Inspeksi Grad-CAM</b><span>Lihat bagaimana fokus perhatian CNN buyar saat diserang dan kembali terkunci setelah mitigasi.</span></article>
+      <article class="card step"><i>04 — DEFENSE</i><b>Mitigasi Berlapis</b><span>Bandingkan Adversarial Training v1/v2 dan Input Preprocessing beserta harga akurasinya.</span></article>
     </section>
-    <footer>DOOM EVASION · LOCAL DEMO · FRAME GAME TIDAK DIKIRIM KE SERVER LUAR</footer>
+    <footer>DOOM EVASION AI · LOCAL ADVERSARIAL ROBUSTNESS LAB · ZERO EXTERNAL TELEMETRY</footer>
   </main>
+
   <script>
     const className = value => Number(value) === 1 ? "ADA MUSUH" : "TIDAK ADA MUSUH";
-    const percent = value => `${(Number(value) * 100).toFixed(2)}%`;
+    const percent = value => (value === null || value === undefined || Number.isNaN(Number(value))) ? "-" : `${(Number(value) * 100).toFixed(2)}%`;
     const pressed = {forward: false, backward: false, left: false, right: false, attack: false};
     let active = true;
     let frameBusy = false;
     let lastFrame = null;
+
     const frameImage = document.getElementById("game-frame");
     const gameError = document.getElementById("game-error");
     const gameCard = document.getElementById("game-card");
     const fullscreenButton = document.getElementById("fullscreen-game");
     const capturePanel = document.getElementById("baseline-capture");
-    const captureButton = document.getElementById("capture-baseline");
+    const captureButton = document.getElementById("capture-frame");
     const captureLabel = document.getElementById("capture-label");
+    const captureAttack = document.getElementById("capture-attack");
+    const captureDefense = document.getElementById("capture-defense");
     const evaluateCaptureButton = document.getElementById("evaluate-capture");
     const downloadCaptureButton = document.getElementById("download-capture");
     const downloadEvaluationButton = document.getElementById("download-evaluation");
     const downloadOfficialButton = document.getElementById("download-official");
     const captureEvaluationPanel = document.getElementById("capture-evaluation");
     const captureEvaluationError = document.getElementById("capture-evaluation-error");
+    const mapSelect = document.getElementById("map-select");
+    const mapWarning = document.getElementById("map-warning");
+    const heroMap = document.getElementById("hero-map");
+    const cardMap = document.getElementById("card-map");
+    const screenWrap = document.getElementById("game-screen-wrap");
+    const mouseHint = document.getElementById("mouse-hint");
+
     let captureAvailable = false;
     let captureEvaluation = null;
     let lastCapture = null;
-    let lastOfficialResults = null;
+    let configData = null;
     let availableControls = {forward: false, backward: false, left: false, right: false, attack: false};
     let canTurn = true;
     let lastMapsSignature = "";
     let currentMapId = null;
     let pendingMapId = null;
-    const mapSelect = document.getElementById("map-select");
-    const mapWarning = document.getElementById("map-warning");
     let currentModelMode = "baseline";
     let mitigationAvailable = false;
-    let mitigationError = null;
-    function syncModelToggle(data) {
-      if (!data) return;
-      if (typeof data.model_mode === "string") currentModelMode = data.model_mode;
-      if (typeof data.mitigation_available === "boolean") mitigationAvailable = data.mitigation_available;
-      if (data.mitigation_error) mitigationError = data.mitigation_error;
-      const available = mitigationAvailable;
-      document.getElementById("model-baseline").classList.toggle("active", currentModelMode === "baseline");
-      document.getElementById("model-mitigation").classList.toggle("active", currentModelMode === "mitigation");
-      document.getElementById("model-compare").classList.toggle("active", currentModelMode === "compare");
-      document.getElementById("model-mitigation").disabled = !available;
-      document.getElementById("model-compare").disabled = !available;
-      document.getElementById("model-status").textContent = available
-        ? ("Mode: " + currentModelMode.toUpperCase() + " · Mitigasi tersedia")
-        : "Mode: BASELINE · Mitigasi tidak tersedia";
-      const note = document.getElementById("model-note");
-      if (!available) {
-        note.hidden = false;
-        note.textContent = "Model mitigasi tidak ditemukan: runs/mitigation/best_model.pt belum ada di laptop. Baseline tetap jalan. Jalankan ulang training mitigasi atau periksa berkas itu.";
-      } else if (mitigationError) {
-        note.hidden = false;
-        note.textContent = mitigationError;
-      } else {
-        note.hidden = true;
-      }
-      const comparePanel = document.getElementById("model-compare");
-      comparePanel.hidden = !(currentModelMode === "compare" && available);
-    }
-    async function setModelMode(mode) {
-      try { await postJson("/api/model", {mode}); }
-      catch (error) { showError(error.message); }
-    }
-    document.querySelectorAll("[data-model-mode]").forEach(button => {
-      button.addEventListener("click", () => setModelMode(button.dataset.modelMode));
-    });
-    const heroMap = document.getElementById("hero-map");
-    const cardMap = document.getElementById("card-map");
-    const screenWrap = document.getElementById("game-screen-wrap");
-    const mouseHint = document.getElementById("mouse-hint");
+    let mitigationV2Available = false;
+    let currentLiveAttack = "none";
+    let currentOverlay = "clean";
+    let currentSmoothing = false;
+    let currentCurveMode = "pgd";
 
     async function postJson(path, data) {
       const response = await fetch(path, {
@@ -433,26 +616,20 @@
       return result;
     }
 
-    async function updateControls() {
-      try {
-        await postJson("/api/input", pressed);
-      } catch (error) {
-        showError(error.message);
-      }
-    }
-
     function showError(message) {
       gameError.textContent = message;
       gameError.hidden = false;
+    }
+
+    async function updateControls() {
+      try { await postJson("/api/input", pressed); }
+      catch (error) { showError(error.message); }
     }
 
     function syncControlButtons() {
       document.querySelectorAll("[data-control]").forEach(button => {
         const control = button.dataset.control;
         button.classList.toggle("pressed", pressed[control]);
-        if (control === "forward" || control === "backward") {
-          button.setAttribute("aria-pressed", String(pressed[control]));
-        }
       });
     }
 
@@ -477,8 +654,7 @@
       const isEditing = target instanceof HTMLElement &&
         (target.isContentEditable || target.matches("input, textarea, select"));
       const key = event.key.toLowerCase();
-      if (key === "c" && !event.repeat && !event.ctrlKey && !event.altKey &&
-          !event.metaKey && !isEditing) {
+      if (key === "c" && !event.repeat && !event.ctrlKey && !event.altKey && !event.metaKey && !isEditing) {
         event.preventDefault();
         captureButton.click();
         return;
@@ -494,18 +670,10 @@
       syncControlButtons();
       updateControls();
     });
+
+    // All directional & attack on-screen buttons consistently use press-and-hold (fixes W/S sticky UX bug)
     document.querySelectorAll("[data-control]").forEach(button => {
       const control = button.dataset.control;
-      if (control === "forward" || control === "backward") {
-        button.setAttribute("aria-pressed", "false");
-        button.addEventListener("click", event => {
-          event.preventDefault();
-          pressed[control] = !pressed[control];
-          syncControlButtons();
-          updateControls();
-        });
-        return;
-      }
       const release = event => {
         event.preventDefault();
         if (!pressed[control]) return;
@@ -515,6 +683,9 @@
       };
       button.addEventListener("pointerdown", event => {
         event.preventDefault();
+        if (button.setPointerCapture) {
+          try { button.setPointerCapture(event.pointerId); } catch (_) {}
+        }
         if (pressed[control]) return;
         pressed[control] = true;
         button.classList.add("pressed");
@@ -524,6 +695,7 @@
       button.addEventListener("pointercancel", release);
       button.addEventListener("lostpointercapture", release);
     });
+
     function applyAvailableControls(next) {
       if (!next) return;
       let changed = false;
@@ -543,6 +715,96 @@
       }
     }
 
+    function syncModelToggle(data) {
+      if (!data) return;
+      if (typeof data.model_mode === "string") currentModelMode = data.model_mode;
+      if (typeof data.mitigation_available === "boolean") mitigationAvailable = data.mitigation_available;
+      if (typeof data.mitigation_v2_available === "boolean") mitigationV2Available = data.mitigation_v2_available;
+      const anyMit = mitigationAvailable || mitigationV2Available;
+
+      document.getElementById("model-baseline").classList.toggle("active", currentModelMode === "baseline");
+      document.getElementById("model-mitigation").classList.toggle("active", currentModelMode === "mitigation");
+      document.getElementById("model-mitigation-v2").classList.toggle("active", currentModelMode === "mitigation_v2");
+      document.getElementById("model-compare").classList.toggle("active", currentModelMode === "compare");
+      document.getElementById("model-mitigation").disabled = !mitigationAvailable;
+      document.getElementById("model-mitigation-v2").disabled = !mitigationV2Available;
+      document.getElementById("model-compare").disabled = !anyMit;
+
+      const availList = ["Baseline", mitigationAvailable ? "v1" : null, mitigationV2Available ? "v2" : null].filter(Boolean).join(" + ");
+      document.getElementById("model-status").textContent = `AKTIF: ${currentModelMode.toUpperCase()} · Tersedia: ${availList}`;
+
+      const note = document.getElementById("model-note");
+      if (!mitigationAvailable) {
+        note.hidden = false;
+        note.textContent = "Model mitigasi v1 tidak ditemukan (runs/mitigation/best_model.pt). Jalankan scripts/train_mitigation.py.";
+      } else {
+        note.hidden = true;
+      }
+
+      const comparePanel = document.getElementById("model-compare-panel");
+      comparePanel.hidden = !(currentModelMode === "compare" && anyMit);
+      document.getElementById("compare-mitigation").hidden = !mitigationAvailable;
+      document.getElementById("compare-mitigation-v2").hidden = !mitigationV2Available;
+    }
+
+    function syncLabControls(data) {
+      if (!data) return;
+      if (typeof data.live_attack_method === "string") currentLiveAttack = data.live_attack_method;
+      if (typeof data.view_overlay === "string") currentOverlay = data.view_overlay;
+      if (typeof data.temporal_smoothing === "boolean") currentSmoothing = data.temporal_smoothing;
+
+      document.querySelectorAll("[data-live-atk]").forEach(btn => {
+        const isAct = btn.dataset.liveAtk === currentLiveAttack;
+        btn.classList.toggle("active", isAct && currentLiveAttack === "none");
+        btn.classList.toggle("attack-on", isAct && currentLiveAttack !== "none");
+      });
+      document.querySelectorAll("[data-view]").forEach(btn => {
+        const isAct = btn.dataset.view === currentOverlay;
+        btn.classList.toggle("active", isAct && currentOverlay === "clean");
+        btn.classList.toggle("xai-on", isAct && currentOverlay !== "clean");
+      });
+      const smoothBtn = document.getElementById("toggle-smoothing");
+      smoothBtn.textContent = currentSmoothing ? "EMA SMOOTH: ON" : "EMA SMOOTH: OFF";
+      smoothBtn.setAttribute("aria-pressed", String(currentSmoothing));
+      smoothBtn.classList.toggle("xai-on", currentSmoothing);
+    }
+
+    document.querySelectorAll("[data-model-mode]").forEach(button => {
+      button.addEventListener("click", async () => {
+        try { await postJson("/api/model", {mode: button.dataset.modelMode}); }
+        catch (error) { showError(error.message); }
+      });
+    });
+
+    async function pushLiveAttack(patch) {
+      try { await postJson("/api/live-attack", patch); }
+      catch (error) { showError(error.message); }
+    }
+    document.querySelectorAll("[data-live-atk]").forEach(btn => {
+      btn.addEventListener("click", () => pushLiveAttack({
+        method: btn.dataset.liveAtk,
+        epsilon: Number(document.getElementById("live-eps").value),
+      }));
+    });
+    document.getElementById("live-eps").addEventListener("change", e => pushLiveAttack({epsilon: Number(e.target.value)}));
+    document.getElementById("live-source").addEventListener("change", e => pushLiveAttack({target_source: e.target.value}));
+    document.getElementById("live-defense").addEventListener("change", e => pushLiveAttack({defense: e.target.value}));
+
+    document.querySelectorAll("[data-view]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        try { await postJson("/api/view", {overlay: btn.dataset.view}); }
+        catch (error) { showError(error.message); }
+      });
+    });
+    document.getElementById("toggle-smoothing").addEventListener("click", async () => {
+      try { await postJson("/api/view", {smoothing: !currentSmoothing}); }
+      catch (error) { showError(error.message); }
+    });
+    document.getElementById("reset-stats").addEventListener("click", async () => {
+      try { await postJson("/api/reset-stats", {}); }
+      catch (error) { showError(error.message); }
+    });
+
     function syncMapOptions(maps, mapId) {
       if (!maps) return;
       const signature = JSON.stringify(maps);
@@ -555,16 +817,15 @@
           return option;
         }));
       }
-      if (mapSelect.value !== mapId) mapSelect.value = mapId;
+      if (mapId && mapSelect.value !== mapId) mapSelect.value = mapId;
     }
 
     mapSelect.addEventListener("change", async () => {
       const mapId = mapSelect.value;
       pendingMapId = mapId;
       mapSelect.disabled = true;
-      try {
-        await postJson("/api/map", {map: mapId});
-      } catch (error) {
+      try { await postJson("/api/map", {map: mapId}); }
+      catch (error) {
         showError(error.message);
         pendingMapId = null;
         mapSelect.value = currentMapId || mapId;
@@ -575,9 +836,11 @@
     function updateControlHints() {
       document.getElementById("hint-turn-kind").textContent = canTurn ? "BELOK" : "GESER";
       document.getElementById("hint-mouse-kind").textContent = canTurn ? "BIDIK + TEMBAK" : "TIDAK BELOK DI MAP INI";
-      document.querySelector('[data-control="left"]').setAttribute("aria-label", canTurn ? "Belok kiri, A atau panah kiri" : "Geser kiri, A atau panah kiri");
-      document.querySelector('[data-control="right"]').setAttribute("aria-label", canTurn ? "Belok kanan, D atau panah kanan" : "Geser kanan, D atau panah kanan");
     }
+
+    let mouseDelta = 0;
+    let mouseLocked = false;
+    let mouseAttack = false;
 
     function syncMouseHint() {
       if (mouseLocked) {
@@ -592,21 +855,10 @@
       mouseHint.classList.toggle("active", mouseLocked);
     }
 
-    let mouseDelta = 0;
-    let mouseLocked = false;
-    let mouseAttack = false;
-
     function flushMouseDelta() {
-      if (mouseDelta === 0 || !canTurn) {
-        mouseDelta = 0;
-        return;
-      }
+      if (mouseDelta === 0 || !canTurn) { mouseDelta = 0; return; }
       const delta = mouseDelta;
       mouseDelta = 0;
-      // Fire and forget: awaiting each mouse POST one by one added lag
-      // under load, and the server drops stale turn input on its own.
-      // A failed mouse POST must not break keyboard play; the next status
-      // poll shows the server state.
       postJson("/api/turn", {delta}).catch(() => {});
     }
     window.setInterval(() => { if (mouseLocked) flushMouseDelta(); }, 16);
@@ -614,9 +866,7 @@
     screenWrap.addEventListener("click", () => {
       if (mouseLocked || !screenWrap.requestPointerLock) return;
       const result = screenWrap.requestPointerLock();
-      if (result && result.catch) {
-        result.catch(() => showError("Kontrol mouse tidak dapat dikunci di browser ini."));
-      }
+      if (result && result.catch) result.catch(() => showError("Kontrol mouse tidak dapat dikunci di browser ini."));
     });
     document.addEventListener("pointerlockchange", () => {
       mouseLocked = document.pointerLockElement === screenWrap;
@@ -667,11 +917,9 @@
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
-
     function downloadJson(data, filename) {
       downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"}), filename);
     }
-
     function downloadBase64Image(base64, mime, filename) {
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
@@ -683,27 +931,32 @@
       downloadCaptureButton.disabled = !captureAvailable || !lastCapture || !lastCapture.frame;
       downloadEvaluationButton.disabled = !captureAvailable || !captureEvaluation;
     }
+    function syncEvaluateCaptureButton() {
+      evaluateCaptureButton.disabled = !captureAvailable || captureLabel.value === "";
+    }
 
     function showBaselineCapture(capture) {
-      if (!capture.frame) return;
+      if (!capture || !capture.frame) return;
       document.getElementById("capture-image").src = `data:image/jpeg;base64,${capture.frame}`;
       document.getElementById("capture-prediction").textContent = className(capture.prediction);
-      document.getElementById("capture-confidence").textContent =
-        `Keyakinan ${(capture.confidence * 100).toFixed(1)}%`;
+      document.getElementById("capture-confidence").textContent = `Keyakinan ${(capture.confidence * 100).toFixed(1)}%`;
       document.getElementById("capture-true-label").textContent =
         (capture.true_label === null || capture.true_label === undefined)
           ? "Label game: —"
           : `Label game: ${className(capture.true_label)}`;
-      const captureCompare = document.getElementById("capture-compare");
+
+      const parts = [];
       if (capture.baseline_prediction !== null && capture.baseline_prediction !== undefined) {
-        const baseText = `Baseline: ${className(capture.baseline_prediction)} ${(capture.baseline_confidence * 100).toFixed(1)}% (P musuh ${(capture.baseline_prob_monster * 100).toFixed(1)}%)`;
-        const mitText = (capture.mitigation_prediction === null || capture.mitigation_prediction === undefined)
-          ? "Mitigasi: tidak tersedia"
-          : `Mitigasi: ${className(capture.mitigation_prediction)} ${(capture.mitigation_confidence * 100).toFixed(1)}% (P musuh ${(capture.mitigation_prob_monster * 100).toFixed(1)}%)`;
-        captureCompare.textContent = baseText + " · " + mitText;
-      } else {
-        captureCompare.textContent = "—";
+        parts.push(`Baseline: ${className(capture.baseline_prediction)} (P musuh ${(capture.baseline_prob_monster * 100).toFixed(1)}%)`);
       }
+      if (capture.mitigation_prediction !== null && capture.mitigation_prediction !== undefined) {
+        parts.push(`Mitigasi v1: ${className(capture.mitigation_prediction)} (P musuh ${(capture.mitigation_prob_monster * 100).toFixed(1)}%)`);
+      }
+      if (capture.mitigation_v2_prediction !== null && capture.mitigation_v2_prediction !== undefined) {
+        parts.push(`Mitigasi v2: ${className(capture.mitigation_v2_prediction)} (P musuh ${(capture.mitigation_v2_prob_monster * 100).toFixed(1)}%)`);
+      }
+      document.getElementById("capture-compare").textContent = parts.join(" · ") || "—";
+
       captureAvailable = true;
       lastCapture = capture;
       captureEvaluation = capture.evaluation || null;
@@ -717,11 +970,7 @@
       syncDownloadButtons();
     }
 
-    function syncEvaluateCaptureButton() {
-      evaluateCaptureButton.disabled = !captureAvailable || captureLabel.value === "";
-    }
-
-    function renderEvaluationGroup(title, samples, label) {
+    function renderEvaluationGroup(title, slug, samples, label, attackName) {
       const group = document.createElement("div");
       group.className = "capture-evaluation-group";
       const heading = document.createElement("h4");
@@ -729,34 +978,64 @@
       group.appendChild(heading);
       const grid = document.createElement("div");
       grid.className = "capture-evaluation-grid";
+
       samples.forEach(sample => {
         const matchesLabel = sample.correct;
         const status = label === 1
-          ? (sample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
-          : (sample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
+          ? (sample.prediction === 1 ? "MUSUH TERDETEKSI" : "EVASION: MUSUH TERLEWAT")
+          : (sample.prediction === 0 ? "AMAN (BENAR)" : "FALSE ALARM (SALAH)");
         const card = document.createElement("article");
         card.className = "capture-sample";
-        const heading2 = document.createElement("h3");
-        heading2.textContent = sample.epsilon === 0
-          ? "ASLI · INPUT MODEL 84x84"
-          : `FGSM · EPS ${sample.epsilon.toFixed(2)}`;
-        const image = document.createElement("img");
-        image.src = `data:image/png;base64,${sample.image}`;
-        image.alt = `Input model ${heading2.textContent}`;
-        const prediction = document.createElement("p");
-        prediction.textContent =
-          `Prediksi: ${className(sample.prediction)} · ${(sample.confidence * 100).toFixed(1)}%`;
-        const result = document.createElement("p");
-        result.className = `capture-sample-status ${matchesLabel ? "good" : "bad"}`;
-        result.textContent = status;
-        const download = document.createElement("a");
-        download.className = "sample-download";
-        download.href = `data:image/png;base64,${sample.image}`;
-        download.download = sample.epsilon === 0
-          ? "input-model-asli.png"
-          : `input-model-fgsm-eps-${sample.epsilon.toFixed(2)}.png`;
-        download.textContent = "UNDUH GAMBAR";
-        card.append(heading2, image, prediction, result, download);
+        const epsTag = sample.epsilon === 0 ? "clean" : `${attackName}-eps-${sample.epsilon.toFixed(2)}`;
+        const h3 = document.createElement("h3");
+        h3.textContent = sample.epsilon === 0
+          ? "ASLI (ε = 0.00)"
+          : `${attackName.toUpperCase()} · ε = ${sample.epsilon.toFixed(2)}`;
+
+        const imgRow = document.createElement("div");
+        imgRow.className = "sample-imgs";
+
+        const makeCell = (lbl, b64) => {
+          const cell = document.createElement("div");
+          cell.className = "sample-img-cell";
+          const s = document.createElement("span");
+          s.textContent = lbl;
+          const img = document.createElement("img");
+          img.src = `data:image/png;base64,${b64}`;
+          img.alt = `${title} ${lbl}`;
+          cell.append(s, img);
+          return cell;
+        };
+        imgRow.append(
+          makeCell("INPUT 84x84", sample.image),
+          makeCell("GRAD-CAM", sample.gradcam_image),
+          makeCell("PERTURB x20", sample.perturbation_image)
+        );
+
+        const predP = document.createElement("p");
+        predP.textContent = `${className(sample.prediction)} · P(Musuh) ${(sample.prob_monster * 100).toFixed(1)}% · P(Aman) ${(sample.prob_no_monster * 100).toFixed(1)}%`;
+
+        const resP = document.createElement("p");
+        resP.className = `capture-sample-status ${matchesLabel ? "good" : "bad"}`;
+        resP.textContent = status;
+
+        const dlWrap = document.createElement("div");
+        dlWrap.className = "sample-downloads";
+        const makeDl = (text, b64, suffix) => {
+          const a = document.createElement("a");
+          a.className = "sample-download";
+          a.href = `data:image/png;base64,${b64}`;
+          a.download = `${slug}-${epsTag}-${suffix}.png`;
+          a.textContent = text;
+          return a;
+        };
+        dlWrap.append(
+          makeDl("IMG", sample.image, "input"),
+          makeDl("GRAD-CAM", sample.gradcam_image, "gradcam"),
+          makeDl("PERTURB", sample.perturbation_image, "pert")
+        );
+
+        card.append(h3, imgRow, predP, resP, dlWrap);
         grid.append(card);
       });
       group.appendChild(grid);
@@ -764,32 +1043,25 @@
     }
 
     function renderCaptureEvaluation(evaluation) {
-      const baselineSamples = evaluation.baseline_samples || evaluation.samples;
-      const cleanSample = baselineSamples[0];
-      const cleanStatus = evaluation.label === 1
-        ? (cleanSample.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
-        : (cleanSample.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
-      let summary = `Label sebenarnya: ${className(evaluation.label)} · Baseline frame asli: ${cleanStatus}`;
-      if (evaluation.mitigation_samples && evaluation.mitigation_samples[0]) {
-        const mitClean = evaluation.mitigation_samples[0];
-        const mitStatus = evaluation.label === 1
-          ? (mitClean.prediction === 1 ? "MUSUH TERDETEKSI" : "MUSUH TERLEWAT")
-          : (mitClean.prediction === 0 ? "TIDAK ADA MUSUH" : "SALAH DETEKSI MUSUH");
-        summary += ` · Mitigasi frame asli: ${mitStatus}`;
-      } else {
-        summary += " · Mitigasi: tidak tersedia pada capture ini";
-      }
+      const atk = evaluation.attack || "fgsm";
+      const defLabel = evaluation.defense_label || "Tanpa Preprocessing";
+      const countFlipped = samples => samples ? samples.slice(1).filter(s => !s.correct).length : null;
+      const bFail = countFlipped(evaluation.baseline_samples);
+      const m1Fail = countFlipped(evaluation.mitigation_samples);
+      const m2Fail = countFlipped(evaluation.mitigation_v2_samples);
+      let summary = `Label: ${className(evaluation.label)} · Serangan: ${atk.toUpperCase()} · Defense: ${defLabel} · Gagal (dari 3 ε) → Baseline: ${bFail}/3`;
+      if (m1Fail !== null) summary += ` · Mitigasi v1: ${m1Fail}/3`;
+      if (m2Fail !== null) summary += ` · Mitigasi v2: ${m2Fail}/3`;
       document.getElementById("capture-evaluation-summary").textContent = summary;
+
       const container = document.getElementById("capture-evaluation-grid");
       container.replaceChildren();
-      container.appendChild(renderEvaluationGroup("BASELINE", baselineSamples, evaluation.label));
+      container.appendChild(renderEvaluationGroup("BASELINE", "baseline", evaluation.baseline_samples, evaluation.label, atk));
       if (evaluation.mitigation_samples) {
-        container.appendChild(renderEvaluationGroup("MITIGASI", evaluation.mitigation_samples, evaluation.label));
-      } else {
-        const note = document.createElement("p");
-        note.className = "capture-evaluation-summary";
-        note.textContent = "Mitigasi tidak dievaluasi: berkas runs/mitigation/best_model.pt tidak ditemukan saat server dinyalakan.";
-        container.appendChild(note);
+        container.appendChild(renderEvaluationGroup("MITIGASI V1 (FGSM 0.03)", "mitigasi-v1", evaluation.mitigation_samples, evaluation.label, atk));
+      }
+      if (evaluation.mitigation_v2_samples) {
+        container.appendChild(renderEvaluationGroup("MITIGASI V2 (FGSM-RS MULTI-EPS)", "mitigasi-v2", evaluation.mitigation_v2_samples, evaluation.label, atk));
       }
       captureEvaluationPanel.hidden = false;
     }
@@ -807,13 +1079,13 @@
       }
     });
 
-    captureLabel.addEventListener("change", () => {
-      if (captureEvaluation && Number(captureLabel.value) !== captureEvaluation.label) {
+    [captureLabel, captureAttack, captureDefense].forEach(el => {
+      el.addEventListener("change", () => {
         captureEvaluation = null;
         captureEvaluationPanel.hidden = true;
-      }
-      syncEvaluateCaptureButton();
-      syncDownloadButtons();
+        syncEvaluateCaptureButton();
+        syncDownloadButtons();
+      });
     });
 
     evaluateCaptureButton.addEventListener("click", async () => {
@@ -822,7 +1094,9 @@
       captureEvaluationError.hidden = true;
       try {
         captureEvaluation = await postJson("/api/evaluate-capture", {
-          label: Number(captureLabel.value)
+          label: Number(captureLabel.value),
+          attack: captureAttack.value,
+          defense: captureDefense.value,
         });
         renderCaptureEvaluation(captureEvaluation);
         capturePanel.scrollIntoView({behavior: "smooth", block: "nearest"});
@@ -838,7 +1112,7 @@
 
     downloadCaptureButton.addEventListener("click", () => {
       if (!lastCapture || !lastCapture.frame) return;
-      downloadBase64Image(lastCapture.frame, "image/jpeg", "capture-baseline.jpg");
+      downloadBase64Image(lastCapture.frame, "image/jpeg", "capture-frame.jpg");
     });
 
     downloadEvaluationButton.addEventListener("click", () => {
@@ -849,31 +1123,18 @@
           confidence: lastCapture.confidence,
           true_label: lastCapture.true_label,
           baseline_prediction: lastCapture.baseline_prediction,
-          baseline_confidence: lastCapture.baseline_confidence,
-          baseline_prob_monster: lastCapture.baseline_prob_monster,
           mitigation_prediction: lastCapture.mitigation_prediction,
-          mitigation_confidence: lastCapture.mitigation_confidence,
-          mitigation_prob_monster: lastCapture.mitigation_prob_monster,
+          mitigation_v2_prediction: lastCapture.mitigation_v2_prediction,
         },
         evaluation: captureEvaluation,
         generated_at: new Date().toISOString(),
-      }, "capture-evaluasi.json");
+      }, "capture-evaluasi-multi-model.json");
     });
 
     downloadOfficialButton.addEventListener("click", () => {
-      if (!lastOfficialResults) return;
-      downloadJson({...lastOfficialResults, generated_at: new Date().toISOString()}, "hasil-resmi-doom-evasion.json");
+      if (!configData) return;
+      downloadJson({...configData, generated_at: new Date().toISOString()}, "hasil-resmi-dan-analisis-doom-evasion.json");
     });
-
-    async function restoreBaselineCapture() {
-      try {
-        const response = await fetch("/api/capture", {cache: "no-store"});
-        if (!response.ok) throw new Error(`Capture tidak dapat dimuat (${response.status})`);
-        showBaselineCapture(await response.json());
-      } catch (error) {
-        showError(error.message);
-      }
-    }
 
     fullscreenButton.addEventListener("click", async () => {
       try {
@@ -889,6 +1150,311 @@
       fullscreenButton.setAttribute("aria-pressed", String(fullscreen));
     });
 
+    // -------- STATIC CONFIG & RESEARCH VISUALIZATIONS --------
+    function updateOfficialExample() {
+      const src = document.getElementById("example-source").value;
+      const eps = document.getElementById("example-epsilon").value;
+      document.getElementById("official-example").src = `/assets/${src}/examples_eps_${eps}.png`;
+    }
+    document.getElementById("example-source").addEventListener("change", updateOfficialExample);
+    document.getElementById("example-epsilon").addEventListener("change", updateOfficialExample);
+
+    function renderStaticConfig(cfg) {
+      configData = cfg;
+      mitigationAvailable = !!cfg.mitigation_available;
+      mitigationV2Available = !!cfg.mitigation_v2_available;
+      syncMapOptions(cfg.maps, currentMapId);
+      syncModelToggle({
+        model_mode: currentModelMode,
+        mitigation_available: mitigationAvailable,
+        mitigation_v2_available: mitigationV2Available,
+      });
+
+      const baseline = cfg.baseline_metrics;
+      const attack = cfg.attack_metrics;
+      if (baseline && attack) {
+        downloadOfficialButton.disabled = false;
+        document.getElementById("metric-accuracy").textContent = percent(baseline.test.accuracy);
+        document.getElementById("metric-f1").textContent = percent(baseline.test.macro_f1);
+        document.getElementById("metric-correct").textContent = `${attack.initially_correct} / ${attack.test_n}`;
+        document.getElementById("metric-total").textContent = attack.test_n;
+
+        const c1Correct = baseline.test.confusion_matrix ? baseline.test.confusion_matrix[1][1] : null;
+        const c0Correct = baseline.test.confusion_matrix ? baseline.test.confusion_matrix[0][0] : null;
+        document.getElementById("attack-rows").replaceChildren(...attack.per_epsilon.map(item => {
+          const row = document.createElement("tr");
+          const evRate = item.evasion_rate !== undefined
+            ? percent(item.evasion_rate)
+            : (c1Correct ? percent(item.flips_1_to_0 / c1Correct) : "-");
+          const faRate = item.false_alarm_rate !== undefined
+            ? percent(item.false_alarm_rate)
+            : (c0Correct ? percent(item.flips_0_to_1 / c0Correct) : "-");
+          [
+            item.epsilon.toFixed(2),
+            `${item.flipped} / ${item.denominator}`,
+            percent(item.asr),
+            percent(item.adv_accuracy),
+            `${item.flips_1_to_0} (${evRate})`,
+            `${item.flips_0_to_1} (${faRate})`,
+          ].forEach((val, idx) => {
+            const td = document.createElement("td");
+            td.textContent = val;
+            if (idx === 2) td.className = "emph";
+            if (idx === 4 && item.flips_1_to_0 > 0) td.className = "bad";
+            row.appendChild(td);
+          });
+          return row;
+        }));
+      }
+
+      // Section 04: Mitigation v1 & v2 Metrics + FGSM/PGD Table
+      const m1 = cfg.mitigation_metrics;
+      const m1Fgsm = cfg.mitigated_attack_metrics;
+      const m2 = cfg.mitigation_v2_metrics;
+      const m2Fgsm = cfg.fgsm_mitigated_v2_metrics;
+      if (m1 && baseline) {
+        document.getElementById("metric-mitigation-accuracy").textContent = percent(m1.test.accuracy);
+        document.getElementById("metric-mitigation-f1").textContent = percent(m1.test.macro_f1);
+        document.getElementById("metric-mitigation-correct").textContent = m1Fgsm ? `${m1Fgsm.initially_correct} / ${m1Fgsm.test_n}` : "-";
+        const cost1 = baseline.test.accuracy - m1.test.accuracy;
+        document.getElementById("metric-mitigation-cost").textContent = `${cost1 >= 0 ? "-" : "+"}${(Math.abs(cost1) * 100).toFixed(2)} poin`;
+      }
+      if (m2 && baseline) {
+        document.getElementById("metric-mitigation-v2-acc").textContent = `v2: ${percent(m2.test.accuracy)}`;
+        document.getElementById("metric-mitigation-v2-f1").textContent = `v2: ${percent(m2.test.macro_f1)}`;
+        document.getElementById("metric-mitigation-v2-correct").textContent = m2Fgsm ? `v2: ${m2Fgsm.initially_correct} / ${m2Fgsm.test_n}` : "v2: -";
+        const cost2 = baseline.test.accuracy - m2.test.accuracy;
+        document.getElementById("metric-mitigation-v2-cost").textContent = `v2: ${cost2 >= 0 ? "-" : "+"}${(Math.abs(cost2) * 100).toFixed(2)} poin`;
+      }
+
+      const mitRowsEl = document.getElementById("mitigation-rows");
+      if (!m1Fgsm && !cfg.pgd_metrics) {
+        mitRowsEl.innerHTML = '<tr><td colspan="8">Hasil mitigasi belum tersedia. Jalankan scripts/train_mitigation.py lalu scripts/attack_fgsm.py ke runs/fgsm_mitigated.</td></tr>';
+      } else {
+        const indexByEps = obj => new Map((obj && obj.per_epsilon ? obj.per_epsilon : []).map(x => [x.epsilon, x]));
+        const sets = [
+          {name: "FGSM (1-Step)", b: indexByEps(cfg.attack_metrics), v1: indexByEps(cfg.mitigated_attack_metrics), v2: indexByEps(cfg.fgsm_mitigated_v2_metrics)},
+          {name: "PGD-10 (Iteratif)", b: indexByEps(cfg.pgd_metrics), v1: indexByEps(cfg.pgd_mitigated_metrics), v2: indexByEps(cfg.pgd_mitigated_v2_metrics)},
+        ];
+        const trs = [];
+        sets.forEach(s => {
+          [0.01, 0.03, 0.05].forEach(eps => {
+            const rb = s.b.get(eps), r1 = s.v1.get(eps), r2 = s.v2.get(eps);
+            if (!rb && !r1 && !r2) return;
+            const tr = document.createElement("tr");
+            [
+              s.name,
+              eps.toFixed(2),
+              rb ? percent(rb.asr) : "-",
+              r1 ? percent(r1.asr) : "-",
+              r2 ? percent(r2.asr) : "-",
+              rb ? percent(rb.adv_accuracy) : "-",
+              r1 ? percent(r1.adv_accuracy) : "-",
+              r2 ? percent(r2.adv_accuracy) : "-",
+            ].forEach((val, idx) => {
+              const td = document.createElement("td");
+              td.textContent = val;
+              if (idx === 2) td.className = "bad";
+              if (idx === 4 && r2) td.className = "good";
+              if (idx === 3 && !r2) td.className = "emph";
+              tr.appendChild(td);
+            });
+            trs.push(tr);
+          });
+        });
+        mitRowsEl.replaceChildren(...trs);
+      }
+
+      updateOfficialExample();
+      renderRobustnessChart(cfg.robustness_curves, currentCurveMode);
+      renderTransferMatrix("transfer-fgsm-wrap", cfg.transferability, "fgsm");
+      renderTransferMatrix("transfer-pgd-wrap", cfg.transferability, "pgd");
+      renderDefenseTable(cfg.defense_comparison, document.getElementById("defense-filter").value);
+    }
+
+    function renderRobustnessChart(curves, mode) {
+      const box = document.getElementById("robustness-chart");
+      const legend = document.getElementById("robustness-legend");
+      if (!curves || !curves.models) {
+        box.textContent = "Data kurva ketahanan belum tersedia. Jalankan scripts/evaluate_suite.py.";
+        legend.replaceChildren();
+        return;
+      }
+      const W = 860, H = 290, padL = 54, padR = 24, padT = 18, padB = 38;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const epsList = curves.epsilons;
+      const maxEps = Math.max(...epsList);
+      const xOf = eps => padL + (eps / maxEps) * plotW;
+      const yOf = asr => padT + (1 - asr) * plotH;
+
+      const palette = {
+        baseline: "#ed4936",
+        mitigation_v1: "#ffd05a",
+        mitigation_v2: "#6fd38a",
+      };
+      const methods = mode === "both" ? ["fgsm", "pgd"] : [mode];
+
+      let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kurva ASR terhadap epsilon">`;
+      // Grid lines
+      [0, 0.25, 0.5, 0.75, 1.0].forEach(y => {
+        const py = yOf(y).toFixed(1);
+        svg += `<line x1="${padL}" y1="${py}" x2="${W - padR}" y2="${py}" stroke="#3a1b12" stroke-width="1"/>`;
+        svg += `<text x="${padL - 8}" y="${Number(py) + 4}" fill="#aa8c61" font-size="10" text-anchor="end">${Math.round(y * 100)}%</text>`;
+      });
+      epsList.forEach(eps => {
+        const px = xOf(eps).toFixed(1);
+        svg += `<line x1="${px}" y1="${padT}" x2="${px}" y2="${H - padB}" stroke="#27130d" stroke-width="1"/>`;
+        svg += `<text x="${px}" y="${H - padB + 16}" fill="#aa8c61" font-size="10" text-anchor="middle">${eps.toFixed(2)}</text>`;
+      });
+      svg += `<text x="${W / 2}" y="${H - 5}" fill="#e8d8b5" font-size="11" text-anchor="middle">Kekuatan Perturbasi (ε)</text>`;
+      svg += `<text x="14" y="${H / 2}" fill="#e8d8b5" font-size="11" text-anchor="middle" transform="rotate(-90 14 ${H / 2})">ASR (%)</text>`;
+
+      const legendItems = [];
+      Object.entries(curves.models).forEach(([key, mData]) => {
+        const color = palette[key] || "#59c8d8";
+        methods.forEach(m => {
+          const pts = mData[m] || [];
+          if (!pts.length) return;
+          const dashed = (mode === "both" && m === "fgsm") ? ' stroke-dasharray="6 4"' : "";
+          const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.epsilon).toFixed(1)},${yOf(p.asr).toFixed(1)}`).join(" ");
+          svg += `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2.4"${dashed}/>`;
+          pts.forEach(p => {
+            const cx = xOf(p.epsilon).toFixed(1), cy = yOf(p.asr).toFixed(1);
+            svg += `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${color}"><title>${mData.label} (${m.toUpperCase()}) · ε=${p.epsilon.toFixed(2)} → ASR ${(p.asr * 100).toFixed(2)}% · Adv Acc ${(p.adv_accuracy * 100).toFixed(2)}%</title></circle>`;
+          });
+          legendItems.push({label: `${mData.label} (${m.toUpperCase()})`, color, dashed: !!dashed});
+        });
+      });
+      svg += "</svg>";
+      box.innerHTML = svg;
+
+      legend.replaceChildren(...legendItems.map(it => {
+        const span = document.createElement("span");
+        span.className = "legend-item";
+        const dot = document.createElement("span");
+        dot.className = "legend-dot";
+        dot.style.background = it.dashed ? "transparent" : it.color;
+        if (it.dashed) dot.style.borderTop = `2px dashed ${it.color}`;
+        span.append(dot, document.createTextNode(it.label));
+        return span;
+      }));
+    }
+
+    document.querySelectorAll("[data-curve-mode]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentCurveMode = btn.dataset.curveMode;
+        document.querySelectorAll("[data-curve-mode]").forEach(b => b.classList.toggle("active", b === btn));
+        if (configData) renderRobustnessChart(configData.robustness_curves, currentCurveMode);
+      });
+    });
+
+    function renderTransferMatrix(containerId, transfer, method) {
+      const wrap = document.getElementById(containerId);
+      if (!transfer || !transfer[method] || !transfer.models) {
+        wrap.innerHTML = '<p class="explain">Matriks transferabilitas belum tersedia. Jalankan scripts/evaluate_suite.py.</p>';
+        return;
+      }
+      const models = transfer.models;
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const hRow = document.createElement("tr");
+      const corner = document.createElement("th");
+      corner.textContent = "Source \\ Target";
+      hRow.appendChild(corner);
+      models.forEach(m => {
+        const th = document.createElement("th");
+        th.textContent = m.label.split(" ")[0] + (m.key.includes("v1") ? " v1" : m.key.includes("v2") ? " v2" : "");
+        hRow.appendChild(th);
+      });
+      thead.appendChild(hRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      models.forEach(src => {
+        const tr = document.createElement("tr");
+        const srcTd = document.createElement("td");
+        srcTd.textContent = src.label;
+        srcTd.className = "emph";
+        tr.appendChild(srcTd);
+        models.forEach(tgt => {
+          const cellData = transfer[method][src.key]?.[tgt.key];
+          const td = document.createElement("td");
+          td.className = "heat";
+          if (!cellData) {
+            td.textContent = "-";
+          } else {
+            const asr = cellData.asr;
+            const alpha = Math.min(0.75, 0.1 + asr * 0.65);
+            td.style.background = `rgba(237, 73, 54, ${alpha.toFixed(2)})`;
+            td.style.color = asr > 0.45 ? "#fff6e5" : "#e8d8b5";
+            td.textContent = `${percent(asr)}${cellData.white_box ? " (WB)" : " (BB)"}`;
+            td.title = `${src.label} → ${tgt.label}: ASR ${percent(asr)}, Adv Acc ${percent(cellData.adv_accuracy)}`;
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.replaceChildren(table);
+    }
+
+    function renderDefenseTable(defenseComp, filterModel) {
+      const tbody = document.getElementById("defense-rows");
+      if (!defenseComp || !defenseComp.rows) {
+        tbody.innerHTML = '<tr><td colspan="8">Data perbandingan pertahanan belum tersedia. Jalankan scripts/evaluate_suite.py.</td></tr>';
+        return;
+      }
+      const rows = defenseComp.rows.filter(r => filterModel === "all" || r.model_key === filterModel);
+      tbody.replaceChildren(...rows.map(r => {
+        const tr = document.createElement("tr");
+        [
+          r.model_label,
+          r.defense_label,
+          percent(r.clean_accuracy),
+          percent(r.clean_macro_f1),
+          percent(r.fgsm_asr),
+          percent(r.fgsm_evasion_rate),
+          percent(r.pgd_asr),
+          percent(r.pgd_adv_accuracy),
+        ].forEach((val, idx) => {
+          const td = document.createElement("td");
+          td.textContent = val;
+          if (idx === 4) td.className = r.fgsm_asr < 0.25 ? "good" : (r.fgsm_asr > 0.6 ? "bad" : "emph");
+          if (idx === 6) td.className = r.pgd_asr < 0.35 ? "good" : (r.pgd_asr > 0.7 ? "bad" : "emph");
+          tr.appendChild(td);
+        });
+        return tr;
+      }));
+    }
+    document.getElementById("defense-filter").addEventListener("change", e => {
+      if (configData) renderDefenseTable(configData.defense_comparison, e.target.value);
+    });
+
+    function formatSessionBucket(label, b) {
+      if (!b || b.frames === 0) return `${label}: 0 frame`;
+      const acc = (b.correct / b.frames) * 100;
+      const evPct = b.monster_frames > 0 ? ((b.evasions / b.monster_frames) * 100).toFixed(1) : "0.0";
+      return `${label}: <span class="ok-num">${acc.toFixed(1)}%</span> (${b.correct}/${b.frames}) · Evasion <span class="bad-num">${b.evasions}/${b.monster_frames} (${evPct}%)</span> · FA ${b.false_alarms}`;
+    }
+
+    // -------- LEAN LIVE POLLING --------
+    async function loadConfigOnce() {
+      try {
+        const res = await fetch("/api/config", {cache: "no-store"});
+        if (res.ok) renderStaticConfig(await res.json());
+      } catch (_) {}
+    }
+
+    async function restoreBaselineCapture() {
+      try {
+        const response = await fetch("/api/capture", {cache: "no-store"});
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.frame) showBaselineCapture(data);
+        }
+      } catch (_) {}
+    }
+
     async function pollFrame() {
       if (!active || frameBusy) return;
       frameBusy = true;
@@ -901,6 +1467,10 @@
         document.getElementById("server-status").classList.toggle("offline", !online);
         document.getElementById("game-live").textContent = online ? "LIVE" : "MENUNGGU";
         document.getElementById("game-card").classList.toggle("offline", !online);
+
+        syncModelToggle(data);
+        syncLabControls(data);
+
         if (data.frame) {
           if (data.frame !== lastFrame) {
             frameImage.src = `data:image/jpeg;base64,${data.frame}`;
@@ -914,29 +1484,51 @@
             (data.true_label === null || data.true_label === undefined)
               ? "LABEL GAME: —"
               : `LABEL GAME: ${className(data.true_label)}`;
-          document.getElementById("live-confidence").textContent = `${(data.confidence * 100).toFixed(1)}% yakin`;
-          syncModelToggle(data);
-          const activeProb = (data.model_mode === "mitigation" && data.mitigation_prob_monster !== null && data.mitigation_prob_monster !== undefined)
-            ? data.mitigation_prob_monster : data.baseline_prob_monster;
-          document.getElementById("live-prob-monster").textContent =
-            (activeProb === null || activeProb === undefined) ? "—"
-            : `P musuh: ${(activeProb * 100).toFixed(1)}% · Baseline ${(data.baseline_prob_monster * 100).toFixed(1)}%` +
-              ((data.mitigation_prob_monster === null || data.mitigation_prob_monster === undefined) ? " · Mitigasi: -" : ` · Mitigasi ${(data.mitigation_prob_monster * 100).toFixed(1)}%`);
-          if (data.model_mode === "compare" && data.mitigation_available) {
-            const baseEl = document.getElementById("compare-baseline");
-            const mitEl = document.getElementById("compare-mitigation");
-            baseEl.querySelector("strong").textContent = `BASELINE: ${className(data.baseline_prediction)}`;
-            baseEl.querySelector("span").textContent = `${(data.baseline_confidence * 100).toFixed(1)}% yakin · P musuh ${(data.baseline_prob_monster * 100).toFixed(1)}%`;
-            mitEl.querySelector("strong").textContent = `MITIGASI: ${className(data.mitigation_prediction)}`;
-            mitEl.querySelector("span").textContent = `${(data.mitigation_confidence * 100).toFixed(1)}% yakin · P musuh ${(data.mitigation_prob_monster * 100).toFixed(1)}%`;
-            const disagree = data.baseline_prediction !== data.mitigation_prediction;
-            baseEl.classList.toggle("disagree", disagree);
-            mitEl.classList.toggle("disagree", disagree);
-          }
+          document.getElementById("live-confidence").textContent = `${(data.confidence * 100).toFixed(1)}% yakin${data.temporal_smoothing ? " (EMA)" : ""}`;
+          document.getElementById("live-prob-both").textContent =
+            (data.prob_monster === null || data.prob_monster === undefined)
+              ? "—"
+              : `P(Musuh) ${(data.prob_monster * 100).toFixed(1)}% · P(Aman) ${(data.prob_no_monster * 100).toFixed(1)}%`;
+
+          const atkBadge = data.live_attack_method !== "none"
+            ? `${data.live_attack_method.toUpperCase()} ε=${Number(data.live_attack_epsilon).toFixed(2)}`
+            : "BERSIH";
+          const defBadge = data.live_defense !== "none" ? ` · DEF:${data.live_defense}` : "";
+          const viewBadge = data.view_overlay !== "clean" ? ` · VIEW:${data.view_overlay.toUpperCase()}` : "";
+          document.getElementById("live-lab-badge").textContent = `${data.model_mode.toUpperCase()} · ${atkBadge}${defBadge}${viewBadge}`;
           document.getElementById("fps").textContent = `${data.fps.toFixed(1)} FPS`;
+
+          if (data.model_mode === "compare") {
+            const updateCmp = (elId, title, pred, conf, pMon) => {
+              const el = document.getElementById(elId);
+              if (pred === null || pred === undefined) return;
+              el.querySelector("strong").textContent = `${title}: ${className(pred)}`;
+              el.querySelector("span").textContent = `${(conf * 100).toFixed(1)}% yakin · P(Musuh) ${(pMon * 100).toFixed(1)}%`;
+              const wrong = data.true_label !== null && data.true_label !== undefined && pred !== data.true_label;
+              el.classList.toggle("bad", wrong);
+              el.classList.toggle("ok", !wrong);
+            };
+            updateCmp("compare-baseline", "BASELINE", data.baseline_prediction, data.baseline_confidence, data.baseline_prob_monster);
+            updateCmp("compare-mitigation", "MITIGASI V1", data.mitigation_prediction, data.mitigation_confidence, data.mitigation_prob_monster);
+            updateCmp("compare-mitigation-v2", "MITIGASI V2", data.mitigation_v2_prediction, data.mitigation_v2_confidence, data.mitigation_v2_prob_monster);
+          }
+
+          // Update Live Session Telemetry
+          const st = data.session_stats || {};
+          const segs = [];
+          if (data.model_mode === "compare") {
+            segs.push(formatSessionBucket("Base", st.baseline));
+            if (data.mitigation_available) segs.push(formatSessionBucket("v1", st.mitigation));
+            if (data.mitigation_v2_available) segs.push(formatSessionBucket("v2", st.mitigation_v2));
+          } else {
+            const k = data.model_mode;
+            segs.push(formatSessionBucket(k.toUpperCase(), st[k]));
+          }
+          document.getElementById("session-summary").innerHTML =
+            `<b>STATISTIK SESI LIVE</b> (bukan test set resmi): ` + segs.join(" &nbsp;|&nbsp; ");
           gameError.hidden = !data.error;
         }
-        syncMapOptions(data.maps, data.map_id);
+
         if (currentMapId !== null && data.map_id !== currentMapId) {
           captureAvailable = false;
           captureEvaluation = null;
@@ -948,6 +1540,7 @@
           syncDownloadButtons();
         }
         currentMapId = data.map_id;
+        if (mapSelect.value !== data.map_id && configData) mapSelect.value = data.map_id;
         if (pendingMapId !== null && data.map_id === pendingMapId) {
           pendingMapId = null;
           mapSelect.disabled = false;
@@ -963,127 +1556,26 @@
           syncMouseHint();
         }
         if (data.error) showError(data.error);
-        if (data.baseline_metrics && data.attack_metrics) {
-          lastOfficialResults = {
-            baseline_metrics: data.baseline_metrics,
-            attack_metrics: data.attack_metrics,
-            mitigation_metrics: data.mitigation_metrics || null,
-            mitigated_attack_metrics: data.mitigated_attack_metrics || null,
-          };
-        }
-        if (!metricsRendered && !metricsFailed && data.baseline_metrics && data.attack_metrics) {
-          try {
-            renderMetrics(data.baseline_metrics, data.attack_metrics);
-            downloadOfficialButton.disabled = false;
-          } catch (error) {
-            metricsFailed = true;
-            showError(`Hasil evaluasi tidak dapat ditampilkan: ${error.message}`);
-          }
-        }
-        if (!mitigationRendered && !mitigationFailed && data.baseline_metrics && data.attack_metrics) {
-          try {
-            renderMitigation(data.mitigation_metrics, data.mitigated_attack_metrics, data.baseline_metrics, data.attack_metrics);
-          } catch (error) {
-            mitigationFailed = true;
-            showError(`Hasil mitigasi tidak dapat ditampilkan: ${error.message}`);
-          }
-        }
+        if (!configData) loadConfigOnce();
       } catch (error) {
         document.getElementById("server-status").textContent = "SERVER OFFLINE";
         document.getElementById("server-status").classList.add("offline");
         document.getElementById("game-live").textContent = "OFFLINE";
-        showError(`Jalankan server dengan perintah py live_demo.py. ${error.message}`);
+        showError(`Jalankan server dengan perintah .\\.venv\\Scripts\\python.exe live_demo.py. ${error.message}`);
       } finally {
         frameBusy = false;
         if (active) window.setTimeout(pollFrame, 33);
       }
     }
 
-    let metricsRendered = false;
-    let metricsFailed = false;
-    let mitigationRendered = false;
-    let mitigationFailed = false;
-    function renderMetrics(baseline, attack) {
-      if (metricsRendered) return;
-      metricsRendered = true;
-      document.getElementById("metric-accuracy").textContent = percent(baseline.test.accuracy);
-      document.getElementById("metric-f1").textContent = percent(baseline.test.macro_f1);
-      document.getElementById("metric-correct").textContent = `${attack.initially_correct} / ${attack.test_n}`;
-      document.getElementById("metric-total").textContent = attack.test_n;
-      document.getElementById("attack-rows").replaceChildren(...attack.per_epsilon.map(item => {
-        const row = document.createElement("tr");
-        [item.epsilon.toFixed(2), `${item.flipped} / ${item.denominator}`,
-          percent(item.asr), percent(item.adv_accuracy)].forEach((value, index) => {
-          const cell = document.createElement("td");
-          cell.textContent = value;
-          if (index === 2) cell.className = "emph";
-          row.appendChild(cell);
-        });
-        return row;
-      }));
-      updateOfficialExample();
-    }
-
-    function renderMitigation(mitigation, mitigatedAttack, baseline, attack) {
-      if (mitigationRendered) return;
-      mitigationRendered = true;
-      const rows = document.getElementById("mitigation-rows");
-      if (!mitigation || !mitigation.test || !mitigatedAttack || !mitigatedAttack.per_epsilon || !baseline || !attack) {
-        rows.replaceChildren();
-        const row = document.createElement("tr");
-        const cell = document.createElement("td");
-        cell.colSpan = 6;
-        cell.textContent = "Hasil mitigasi belum tersedia di server. Jalankan train_mitigation.py lalu attack_fgsm.py ke runs/fgsm_mitigated, lalu restart demo.";
-        row.appendChild(cell);
-        rows.appendChild(row);
-        return;
-      }
-      document.getElementById("metric-mitigation-accuracy").textContent = percent(mitigation.test.accuracy);
-      document.getElementById("metric-mitigation-f1").textContent = percent(mitigation.test.macro_f1);
-      document.getElementById("metric-mitigation-correct").textContent = `${mitigatedAttack.initially_correct} / ${mitigatedAttack.test_n}`;
-      const cleanCost = baseline.test.accuracy - mitigation.test.accuracy;
-      document.getElementById("metric-mitigation-cost").textContent = `-${(cleanCost * 100).toFixed(2)} poin`;
-      const beforeByEpsilon = new Map(attack.per_epsilon.map(item => [item.epsilon, item]));
-      rows.replaceChildren(...mitigatedAttack.per_epsilon.map(item => {
-        const before = beforeByEpsilon.get(item.epsilon);
-        const drop = before ? before.asr - item.asr : null;
-        const row = document.createElement("tr");
-        [
-          item.epsilon.toFixed(2),
-          before ? percent(before.asr) : "-",
-          percent(item.asr),
-          drop === null ? "-" : percent(drop),
-          before ? percent(before.adv_accuracy) : "-",
-          percent(item.adv_accuracy),
-        ].forEach((value, index) => {
-          const cell = document.createElement("td");
-          cell.textContent = value;
-          if (index === 3) cell.className = "emph";
-          row.appendChild(cell);
-        });
-        return row;
-      }));
-      updateMitigatedExample();
-    }
-
-    function updateMitigatedExample() {
-      document.getElementById("mitigated-example").src =
-        `/assets/fgsm-mitigated/examples_eps_${document.getElementById("example-epsilon-mitigated").value}.png`;
-    }
-
-    function updateOfficialExample() {
-      document.getElementById("official-example").src =
-        `/assets/fgsm/examples_eps_${document.getElementById("example-epsilon").value}.png`;
-    }
-    document.getElementById("example-epsilon").addEventListener("change", updateOfficialExample);
-    document.getElementById("example-epsilon-mitigated").addEventListener("change", updateMitigatedExample);
-    restoreBaselineCapture();
-
     window.addEventListener("beforeunload", () => {
       active = false;
       Object.keys(pressed).forEach(key => { pressed[key] = false; });
       navigator.sendBeacon("/api/input", new Blob([JSON.stringify(pressed)], {type: "application/json"}));
     });
+
+    loadConfigOnce();
+    restoreBaselineCapture();
     pollFrame();
   </script>
 </body>
